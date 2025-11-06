@@ -1,0 +1,120 @@
+library(tidyverse)
+library(haven)
+library(labelled)
+library(lubridate)
+library(table1)
+library(ggpubr)
+library(dplyr)
+library(stringr)
+
+# This section is for cleaning and creating a long data set involving all waves 1-3
+# Wave 2: Rename F122A10C → F122A_10C
+names(wave2)[names(wave2) == "F122A10C"] <- "F122A_10C"
+
+# Wave 3: Rename F122_10C → F122A_10C
+names(wave3)[names(wave3) == "F122_10C"] <- "F122A_10C"
+
+# Step 1: Extract and clean care variables from each waves
+# Helper function for wave-specific extraction
+extract_care_clean <- function(df, prefix, wave_number) {
+  df <- df %>%
+    rename_with(~ gsub("löpnr|Löpnr|LÖPNR", "lopnr", ., ignore.case = TRUE)) %>%
+    mutate(wave = wave_number)
+  
+  # Compose variable names based on prefix
+  vars <- list(
+    formal_any = c(paste0(prefix, "113"), paste0(prefix, "114"), paste0(prefix, "115"), paste0(prefix, "116")),
+    formal_hours = c(paste0(prefix, "114A_2"), paste0(prefix, "115A_2"), paste0(prefix, "116A_2")),
+    informal_hours = paste0(prefix, "122A_", 1:10, "C"),
+    private = paste0(prefix, "117"),
+    rehab = paste0(prefix, "118"),
+    aid = paste0(prefix, "119"),
+    sufficient = c(paste0(prefix, "114B"), paste0(prefix, "115B"),
+                   paste0(prefix, "116B"), paste0(prefix, "122B"), paste0(prefix, "123B"))
+  )
+  
+  df <- df %>%
+    mutate(
+      formal_care_any = case_when(
+        !!sym(vars$formal_any[1]) == 1 | !!sym(vars$formal_any[2]) == 1 |
+          !!sym(vars$formal_any[3]) == 1 | !!sym(vars$formal_any[4]) == 1 ~ 1L,
+        !!sym(vars$formal_any[1]) == 2 & !!sym(vars$formal_any[2]) == 2 &
+          !!sym(vars$formal_any[3]) == 2 & !!sym(vars$formal_any[4]) == 2 ~ 0L,
+        TRUE ~ NA_integer_
+      ),
+      formal_care_hours_per_week = rowSums(across(all_of(vars$formal_hours), ~ ifelse(.x > 0 & .x <= 168, .x, NA)), na.rm = TRUE),
+      formal_care_hours_per_week = ifelse(rowSums(!is.na(select(., all_of(vars$formal_hours)))) == 0, NA, formal_care_hours_per_week),
+      informal_care_hours_per_week = rowSums(across(all_of(vars$informal_hours), ~ ifelse(.x > 0 & .x <= 24, .x, NA)), na.rm = TRUE) * 7,
+      informal_care_hours_per_week = ifelse(rowSums(!is.na(select(., all_of(vars$informal_hours)))) == 0, NA, informal_care_hours_per_week),
+      private_care_any = case_when(
+        !!sym(vars$private) == 1 ~ 1L,
+        !!sym(vars$private) == 2 ~ 0L,
+        TRUE ~ NA_integer_
+      ),
+      rehab_support = case_when(
+        !!sym(vars$rehab) == 1 ~ 1L,
+        !!sym(vars$rehab) == 2 ~ 0L,
+        TRUE ~ NA_real_
+      ),
+      aid_used = case_when(
+        !!sym(vars$aid) == 1 ~ 1L,
+        !!sym(vars$aid) == 2 ~ 0L,
+        TRUE ~ NA_real_
+      )
+    ) %>%
+    mutate(
+      insufficient_service_formal = case_when(!!sym(vars$sufficient[1]) == 4 ~ 1L, TRUE ~ 0L),
+      insufficient_personal_formal = case_when(!!sym(vars$sufficient[2]) == 4 ~ 1L, TRUE ~ 0L),
+      insufficient_healthcare = case_when(!!sym(vars$sufficient[3]) == 4 ~ 1L, TRUE ~ 0L),
+      insufficient_service_informal = case_when(!!sym(vars$sufficient[4]) == 4 ~ 1L, TRUE ~ 0L),
+      insufficient_personal_informal = case_when(!!sym(vars$sufficient[5]) == 4 ~ 1L, TRUE ~ 0L),
+      insufficient_care_domains = rowSums(across(starts_with("insufficient_")), na.rm = TRUE),
+      insufficient_care_any = if_else(insufficient_care_domains > 0, 1, 0, missing = NA_real_)
+    ) %>%
+    select(lopnr, wave, ends_with("_care_any"), ends_with("_per_week"),
+           aid_used, rehab_support, insufficient_care_domains)
+  
+  return(df)
+}
+
+# Step 2: Apply to waves 1-3----
+care_vars_wave1 <- extract_care_clean(wave1, "N1F", wave_number = 1)
+care_vars_wave2 <- extract_care_clean(wave2, "F", wave_number = 2)
+care_vars_wave3 <- extract_care_clean(wave3, "F", wave_number = 3)
+
+# Step 3: Combine into long data----
+# Combine all into long format
+care_long <- bind_rows(care_vars_wave1, care_vars_wave2, care_vars_wave3) %>%
+  arrange(lopnr, wave)
+
+# Step 4: Diagnostics----
+# Summary by wave
+table(care_long$wave)
+length(unique(care_long$lopnr))  # unique persons
+
+# Check one outcome
+# Summary by wave
+table(care_long$wave)
+length(unique(care_long$lopnr))  # unique persons
+
+# Check one outcome
+summary(care_long$formal_care_hours_per_week)
+
+
+# Step 5: Join with nutritional data to wave 1 only----
+# A: Split care_long into wave 1 and other waves
+care_wave1 <- care_long %>% filter(wave == 1)
+care_wave2_3 <- care_long %>% filter(wave != 1)
+
+# B: Merge wave 1 with nutrition data
+care_wave1_enriched <- care_wave1 %>%
+  left_join(nutri_hcru_cov, by = "lopnr")
+
+# C: Bind wave 1 with wave 2 & 3 again
+care_long_enriched <- bind_rows(care_wave1_enriched, care_wave2_3)
+saveRDS(care_long_enriched, "formal_informal_long.rds")
+
+# Optional: check
+table(care_long_enriched$wave, useNA = "ifany")
+summary(care_long_enriched$mna_screening1_cat)
+summary(care_long_enriched$glim_malnutr1)

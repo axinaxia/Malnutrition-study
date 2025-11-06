@@ -1,0 +1,456 @@
+library(tidyverse)
+library(haven)
+library(lubridate)
+library(readxl)
+library(table1)
+library(mice)
+library(nnet)
+library(flexsurv)
+library(boot)
+library(forcats)
+library(ggpubr)
+
+setwd("~/Library/CloudStorage/OneDrive-SharedLibraries-KarolinskaInstitutet/GRP_Economic evaluations of malnutrition in Swedish older adults (KI Livsmedelsverket) - Documents/Individal level data analysis/Data/")
+#setwd("C:/Users/xinxia/Karolinska Institutet/GRP_Economic evaluations of malnutrition in Swedish older adults (KI Livsmedelsverket) - Documents/Individal level data analysis/Data/")
+source("Malnutrition statistical analysis/snack_data cleaning.R")
+
+
+# 1. Baseline characteristics ----
+label(nutri_hcru_cov$age1)<-"Age"
+label(nutri_hcru_cov$sex)<-"Sex"
+label(nutri_hcru_cov$education)<-"Education"
+label(nutri_hcru_cov$lives1)<-"Living alone"
+label(nutri_hcru_cov$tobacco1)<-"Smoking status"
+label(nutri_hcru_cov$mna_screening1_cat)<-"Nutritional status (MNA)"
+label(nutri_hcru_cov$glim_malnutr1)<-"Malnutrition (GLIM)"
+label(nutri_hcru_cov$bmi_cat_w1)<-"BMI category"
+label(nutri_hcru_cov$mi)<-"Myocardial infarction"
+label(nutri_hcru_cov$hf)<-"Heart failure"
+label(nutri_hcru_cov$stroke)<-"Stroke"
+label(nutri_hcru_cov$pd)<-"Parkinson's disease"
+label(nutri_hcru_cov$copd)<-"Chronic obstructive pulmonary disease"
+label(nutri_hcru_cov$ra)<-"Rheumatoid arthritis"
+label(nutri_hcru_cov$op)<-"Osteoporosis"
+label(nutri_hcru_cov$cancer)<-"Cancer"
+label(nutri_hcru_cov$depression)<-"Depression"
+label(nutri_hcru_cov$dementia)<-"Dementia"
+label(nutri_hcru_cov$smell_imp)<-"Loss of smell"
+label(nutri_hcru_cov$taste_imp)<-"Loss of taste"
+label(nutri_hcru_cov$chew_imp)<-"Difficulty with chewing food"
+label(nutri_hcru_cov$poor_appetite)<-"Poor appetite"
+
+
+table1::table1(~age1+education+lives1+tobacco1+mna_screening1_cat+glim_malnutr1+
+                 bmi_cat_w1+mi+hf+stroke+pd+copd+ra+op+cancer+depression+dementia+
+                 smell_imp+taste_imp+chew_imp|sex,
+               data = nutri_hcru_cov %>% filter(fu>0))
+
+
+
+# 2. Impute missing data in variables with MICE ----
+imp<-mice(nutri_hcru_cov %>% 
+            filter(fu>0) %>% 
+            select(lopnr,mna_screening1_cat,glim_malnutr1,age1,sex,education,lives1,tobacco1,
+                   mi,hf,stroke,pd_dem,copd,ra_op,cancer,depression,
+                   smell_taste_imp,chew_imp,ov_num,sv_num,pv_num,fu,pv_fu,death),maxit=0,seed=2025)
+predM<-imp$predictorMatrix
+predM[,c("lopnr","ov_num","sv_num","pv_num","fu","pv_fu","death")]<-0
+meth<-imp$method
+meth[c("mna_screening1_cat","glim_malnutr1","education","tobacco1")]<-"polr"
+meth[c("pv_fu","death")]<-""
+
+nutri_hcru_cov_imp<-mice(nutri_hcru_cov %>% 
+                           filter(fu>0) %>% 
+                           select(lopnr,mna_screening1_cat,glim_malnutr1,age1,sex,
+                                  bmi_cat_w1,education,lives1,tobacco1,
+                                  mi,hf,stroke,pd_dem,copd,ra_op,cancer,depression,
+                                  smell_taste_imp,chew_imp,ov_num,sv_num,pv_num,fu,pv_fu,death),
+                         predictorMatrix = predM,method = meth,
+                         m=5,maxit=20,seed=2025)
+
+
+# 3. Factors associated with malnutrition ----
+covarlist<-c("education","lives1","tobacco1","bmi_cat_w1",
+             "mi","hf","stroke","pd_dem","copd","ra_op","cancer",
+             "depression","smell_taste_imp","chew_imp")
+
+var_names<-c(
+  "education"="Education",
+  "lives1"="Living alone",
+  "tobacco1"="Smoking status",
+  "bmi_cat_w1"="BMI category",
+  "mi"="Myocardial infarction",
+  "hf"="Heart failure",
+  "stroke"="Stroke",
+  "pd_dem"="Parkinson's disease or dementia",
+  "copd"="COPD",
+  "ra_op"="Rheumatoid arthritis or osteoporosis",
+  "cancer"="Cancer",
+  "depression"="Depression",
+  "smell_taste_imp"="Loss of smell ortaste",
+  "chew_imp"="Difficulty with chewing food"
+)
+
+nutri_pred_sum<-data.frame(scale=character(0),nutri_status=numeric(0),pred=character(0),
+                           term=character(0),ci=character(0),p=character(0))
+
+for (s in c("mna_screening1_cat","glim_malnutr1")){
+  for (i in seq_along(covarlist)){
+    
+    temp_formula_str<-paste0(s," ~ ", covarlist[i], " + age1 + sex")
+    
+    temp_nutri_pred<-with(nutri_hcru_cov_imp,multinom(as.formula(temp_formula_str)))
+    
+    temp_nutri_pred_sum<-summary(pool(temp_nutri_pred),conf.int = TRUE,conf.level = 0.95) %>% 
+      as.data.frame() %>% 
+      mutate(n=n(),
+             nutri_status=ifelse(row_number()<=n/2,1,2)) %>% 
+      filter(!term %in% c("(Intercept)","age1","sexFemale")) %>% 
+      mutate(pred=covarlist[i],
+             term=gsub(covarlist[i], "", term),
+             ci=paste0(format(round(exp(estimate),digits = 2),nsmall=2),
+                       " (",
+                       format(round(exp(`2.5 %`),digits = 2),nsmall=2),
+                       "-",
+                       format(round(exp(`97.5 %`),digits = 2),nsmall=2),
+                       ")"),
+             p=ifelse(p.value<0.001,"<0.001",as.character(format(round(p.value,digits = 3),nsmall=3)))) %>% 
+      mutate(scale=s) %>% 
+      select(scale,nutri_status,pred,term,ci,p)
+    
+    nutri_pred_sum<-nutri_pred_sum %>% 
+      rbind(temp_nutri_pred_sum)
+  }
+}
+
+
+nutri_pred_sum<-nutri_pred_sum %>% 
+  mutate(pred=recode(pred, !!!var_names),
+         nutri_status=case_when(scale=="mna_screening1_cat"&nutri_status==1~"At risk",
+                                scale=="mna_screening1_cat"&nutri_status==2~"Malnourished",
+                                scale=="glim_malnutr1"&nutri_status==1~"Moderate malnutrition",
+                                scale=="glim_malnutr1"&nutri_status==2~"Severe malnutrition"),
+         term=ifelse(term==1,"",paste0("-",term)),
+         pred=paste0(pred,term)) %>% 
+  select(-term) %>% 
+  mutate(scale=ifelse(scale=="glim_malnutr1","Malnutrition (GLIM)","Nutritional status (MNA)")) %>% 
+  set_names(c("Nutritional assessment scale",
+              "Nutritional status",
+              "Factor",
+              "OR (95% CI)",
+              "P-value"))
+
+
+# 4. Average care visits by nutritional status ----
+# function for summarising average care visits
+annual_visits_95ci<-function(data,indices,scale,outcome,time) {
+  d<-data[indices, ] %>% 
+    filter(!is.na(.data[[outcome]]),
+           !is.na(.data[[time]]),
+           !is.na(.data[[scale]]))
+  
+  temp_visits<-d %>% 
+    group_by(.data[[scale]]) %>% 
+    summarise(sum_visits=sum(.data[[outcome]]),
+              sum_length=sum(.data[[time]]),.groups = "drop") %>% 
+    mutate(annual_visits=sum_visits/sum_length)
+  
+  return(temp_visits$annual_visits)
+}
+
+
+# 4.1. Average care visits by nutritional status defined by MNA ----
+set.seed(2025)
+mna_ov_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
+                              statistic = annual_visits_95ci, 
+                              scale="mna_screening1_cat",
+                              outcome="ov_num",time="fu",
+                              R = 1000, parallel = "multicore", ncpus = 4),
+                         conf.int=TRUE,conf.method="perc") %>% 
+  cbind(c(1,2,3))
+
+mna_sv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
+                              statistic = annual_visits_95ci, 
+                              scale="mna_screening1_cat",
+                              outcome="sv_num",time="fu",
+                              R = 1000, parallel = "multicore", ncpus = 4),
+                         conf.int=TRUE,conf.method="perc") %>% 
+  cbind(c(1,2,3))
+
+mna_pv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
+                              statistic = annual_visits_95ci, 
+                              scale="mna_screening1_cat",
+                              outcome="pv_num",time="pv_fu",
+                              R = 1000, parallel = "multicore", ncpus = 4),
+                         conf.int=TRUE,conf.method="perc") %>% 
+  cbind(c(1,2,3))
+
+
+# 4.2. Average care visits by nutritional status defined by GLIM ----
+glim_ov_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
+                              statistic = annual_visits_95ci, 
+                              scale="glim_malnutr1",
+                              outcome="ov_num",time="fu",
+                              R = 1000, parallel = "multicore", ncpus = 4),
+                         conf.int=TRUE,conf.method="perc") %>% 
+  cbind(c(1,2,3))
+
+glim_sv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
+                              statistic = annual_visits_95ci, 
+                              scale="glim_malnutr1",
+                              outcome="sv_num",time="fu",
+                              R = 1000, parallel = "multicore", ncpus = 4),
+                         conf.int=TRUE,conf.method="perc") %>% 
+  cbind(c(1,2,3))
+
+glim_pv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
+                              statistic = annual_visits_95ci, 
+                              scale="glim_malnutr1",
+                              outcome="pv_num",time="pv_fu",
+                              R = 1000, parallel = "multicore", ncpus = 4),
+                         conf.int=TRUE,conf.method="perc") %>% 
+  cbind(c(1,2,3))
+
+
+# combine and visualize the results
+mna_labels<-c("Normal","At risk","Malnourished")
+glim_labels<-c("No malnutrition","Moderate malnutrition","Severe malnutrition")
+
+for (i in c("ov","sv","pv")) {
+  temp_mna<-get(paste0("mna_",i,"_visits_95ci")) %>% 
+    rename_with(~ "cat",6) %>% 
+    mutate(scale="MNA",
+           cat=factor(cat,levels=1:3,
+                      labels = str_wrap(mna_labels, width = 15)))
+  
+  temp_glim<-get(paste0("glim_",i,"_visits_95ci")) %>% 
+    rename_with(~ "cat",6) %>% 
+    mutate(scale="GLIM",
+           cat=factor(cat,levels=1:3,
+                      labels = str_wrap(glim_labels, width = 15)))
+  
+  temp_com<-bind_rows(temp_mna,temp_glim) %>% 
+    select(statistic,conf.low,conf.high,cat,scale) %>% 
+    rename(est=statistic,lb=conf.low,ub=conf.high) %>%
+    mutate(scale=factor(scale,levels=c("MNA","GLIM")))
+  
+  assign(
+    paste0("comb_",i,"_visits_plot"),
+    ggplot(temp_com,aes(x=cat,y=est)) +
+      geom_col(fill="steelblue",width=0.6) +
+      geom_errorbar(aes(ymin=lb,ymax=ub),width=0.2) +
+      facet_wrap(~ scale,ncol=2,scales="free_x") +
+      labs(x="",y="Annual Visits and 95% CI",title="") +
+      theme_minimal(base_size=12) +
+      theme(panel.grid=element_blank(),
+            axis.line=element_line(color="black"),
+            panel.border=element_blank(),
+            axis.title.x = element_text(size=10))
+  )
+}
+
+pdf("Malnutrition statistical analysis/figure_1_combined_visits.pdf",
+    width=6,height=10)
+ggarrange(comb_ov_visits_plot,comb_sv_visits_plot,comb_pv_visits_plot,
+          ncol=1,nrow=3,labels=c("A. Outpatient care visits",
+                                 "B. Inpatient care visits",
+                                 "C. Primary care visits"))
+dev.off()
+
+
+# 5. Association between nutritional status and HCRU ----
+# function for poisson regression and summarising model output
+poisson_func<-function(scale,outcome,time,covlist){
+  
+  formula_str<-paste0(
+    outcome," ~ ",scale,"+", paste(covlist, collapse = " + ")
+  )
+  
+  temp_mod<-with(nutri_hcru_cov_imp,glm(as.formula(formula_str),
+                                           family = poisson(link = "log"),
+                                           offset = log(get(time))))
+  
+  temp_mod_sum<-summary(pool(temp_mod),conf.int = TRUE,conf.level = 0.95) %>% 
+    mutate(term=gsub("mna_screening1_cat", "", term),
+           term = trimws(term)) %>% 
+    filter(term!="(Intercept)",
+           !Reduce(`|`, lapply(covlist, function(x) grepl(paste0("^", x), term)))) %>% 
+    mutate(term=gsub(scale, "", term),
+           ci=paste0(format(round(exp(estimate),digits = 2),nsmall=2),
+                     " (",
+                     format(round(exp(`2.5 %`),digits = 2),nsmall=2),
+                     "-",
+                     format(round(exp(`97.5 %`),digits = 2),nsmall=2),
+                     ")"),
+           p=ifelse(p.value<0.001,"<0.001",as.character(format(round(p.value,digits = 3),nsmall=3)))) %>% 
+    select(term,ci)
+  
+  return(temp_mod_sum)
+}
+
+
+
+# 5.1. Association between MNA and HCRU adjusted for covariates ----
+# Poisson regression for the association between malnutrition and outpatient visits
+mna_ov_mod_sum<-poisson_func(scale="mna_screening1_cat",
+                                  outcome="ov_num",time="fu",
+                                  covlist = c("age1","sex"))
+
+
+mna_ov_mod_adj_sum<-poisson_func(scale="mna_screening1_cat",
+                              outcome="ov_num",time="fu",
+                              covlist = c("age1","sex","education","lives1","tobacco1","mi",
+                                          "hf","stroke","pd_dem","copd","ra_op","cancer",
+                                          "depression","smell_taste_imp","chew_imp"))
+
+
+
+# Poisson regression for the association between malnutrition and inpatient visits
+mna_sv_mod_sum<-poisson_func(scale="mna_screening1_cat",
+                              outcome="sv_num",time="fu",
+                              covlist = c("age1","sex"))
+
+
+mna_sv_mod_adj_sum<-poisson_func(scale="mna_screening1_cat",
+                                  outcome="sv_num",time="fu",
+                                  covlist = c("age1","sex","education","lives1","tobacco1","mi",
+                                              "hf","stroke","pd_dem","copd","ra_op","cancer",
+                                              "depression","smell_taste_imp","chew_imp"))
+
+
+
+# Poisson regression for the association between malnutrition and primary care visits
+mna_pv_mod_sum<-poisson_func(scale="mna_screening1_cat",
+                              outcome="pv_num",time="pv_fu",
+                              covlist = c("age1","sex"))
+
+
+mna_pv_mod_adj_sum<-poisson_func(scale="mna_screening1_cat",
+                                  outcome="pv_num",time="pv_fu",
+                                  covlist = c("age1","sex","education","lives1","tobacco1","mi",
+                                              "hf","stroke","pd_dem","copd","ra_op","cancer",
+                                              "depression","smell_taste_imp","chew_imp"))
+
+
+rbind(mna_ov_mod_sum %>% 
+        mutate(HCRU="Outpatient care visits"),
+      mna_sv_mod_sum %>% 
+        mutate(HCRU="Inpatient care visits"),
+      mna_pv_mod_sum %>% 
+        mutate(HCRU="Primary care visits")) %>% 
+  left_join(rbind(mna_ov_mod_adj_sum %>% 
+                    mutate(HCRU="Outpatient care visits"),
+                  mna_sv_mod_adj_sum %>% 
+                    mutate(HCRU="Inpatient care visits"),
+                  mna_pv_mod_adj_sum %>% 
+                    mutate(HCRU="Primary care visits")),
+            by = c("HCRU", "term"), suffix = c("Model 1", "Model 2")) %>% 
+  select(HCRU,everything()) %>% 
+  set_names(c("HCRU","Nutritional status","Rate ratio (95% CI)","Rate ratio (95% CI)"))
+
+
+
+# 5.2. Association between GLIM and HCRU adjusted for covariates ----
+# Poisson regression for the association between malnutrition and outpatient visits
+glim_ov_mod_sum<-poisson_func(scale="glim_malnutr1",
+                             outcome="ov_num",time="fu",
+                             covlist = c("age1","sex"))
+
+
+glim_ov_mod_adj_sum<-poisson_func(scale="glim_malnutr1",
+                                 outcome="ov_num",time="fu",
+                                 covlist = c("age1","sex","education","lives1","tobacco1","mi",
+                                             "hf","stroke","pd_dem","copd","ra_op","cancer",
+                                             "depression","smell_taste_imp","chew_imp"))
+
+
+
+# Poisson regression for the association between malnutrition and inpatient visits
+glim_sv_mod_sum<-poisson_func(scale="glim_malnutr1",
+                             outcome="sv_num",time="fu",
+                             covlist = c("age1","sex"))
+
+
+glim_sv_mod_adj_sum<-poisson_func(scale="glim_malnutr1",
+                                 outcome="sv_num",time="fu",
+                                 covlist = c("age1","sex","education","lives1","tobacco1","mi",
+                                             "hf","stroke","pd_dem","copd","ra_op","cancer",
+                                             "depression","smell_taste_imp","chew_imp"))
+
+
+
+# Poisson regression for the association between malnutrition and primary care visits
+glim_pv_mod_sum<-poisson_func(scale="glim_malnutr1",
+                             outcome="pv_num",time="pv_fu",
+                             covlist = c("age1","sex"))
+
+
+glim_pv_mod_adj_sum<-poisson_func(scale="glim_malnutr1",
+                                 outcome="pv_num",time="pv_fu",
+                                 covlist = c("age1","sex","education","lives1","tobacco1","mi",
+                                             "hf","stroke","pd_dem","copd","ra_op","cancer",
+                                             "depression","smell_taste_imp","chew_imp"))
+
+
+rbind(glim_ov_mod_sum %>% 
+        mutate(HCRU="Outpatient care visits"),
+      glim_sv_mod_sum %>% 
+        mutate(HCRU="Inpatient care visits"),
+      glim_pv_mod_sum %>% 
+        mutate(HCRU="Primary care visits")) %>% 
+  left_join(rbind(glim_ov_mod_adj_sum %>% 
+                    mutate(HCRU="Outpatient care visits"),
+                  glim_sv_mod_adj_sum %>% 
+                    mutate(HCRU="Inpatient care visits"),
+                  glim_pv_mod_adj_sum %>% 
+                    mutate(HCRU="Primary care visits")),
+            by = c("HCRU", "term"), suffix = c("Model 1", "Model 2")) %>% 
+  select(HCRU,everything()) %>% 
+  set_names(c("HCRU","Nutritional status","Rate ratio (95% CI)","Rate ratio (95% CI)"))
+
+
+
+
+# 6. Associations of MNA and GLIM with mortality ----
+mna_mort<-with(nutri_hcru_cov_imp,
+               flexsurvreg(Surv(fu,death)~mna_screening1_cat+age1+sex,dist="weibullPH"))
+
+mna_mort_adj<-with(nutri_hcru_cov_imp,
+               flexsurvreg(Surv(fu,death)~mna_screening1_cat+age1+
+                             education+lives1+tobacco1+mi+
+                           hf+stroke+pd_dem+copd+ra_op+cancer+
+                           depression+smell_taste_imp+chew_imp,dist="weibullPH"))
+
+glim_mort<-with(nutri_hcru_cov_imp,
+               flexsurvreg(Surv(fu,death)~glim_malnutr1+age1+sex,dist="weibullPH"))
+
+glim_mort_adj<-with(nutri_hcru_cov_imp,
+                   flexsurvreg(Surv(fu,death)~glim_malnutr1+age1+
+                                 education+lives1+tobacco1+mi+
+                                 hf+stroke+pd_dem+copd+ra_op+cancer+
+                                 depression+smell_taste_imp+chew_imp,dist="weibullPH"))
+
+summary(pool(mna_mort),conf.int = TRUE,conf.level = 0.95) %>%
+  mutate(model=1,
+         scale="mna") %>% 
+  rbind(summary(pool(mna_mort_adj),conf.int = TRUE,conf.level = 0.95) %>%
+          mutate(model=2,
+                 scale="mna")) %>% 
+  rbind(summary(pool(glim_mort),conf.int = TRUE,conf.level = 0.95) %>%
+          mutate(model=1,
+                 scale="glim")) %>% 
+  rbind(summary(pool(glim_mort_adj),conf.int = TRUE,conf.level = 0.95) %>%
+          mutate(model=2,
+                 scale="glim")) %>% 
+  filter(grepl("mna_",term)|grepl("glim_",term)) %>% 
+  mutate(term=gsub("mna_screening1_cat", "", term),
+         term=gsub("glim_malnutr1", "", term),
+         term = trimws(term)) %>% 
+  mutate(ci=paste0(format(round(exp(estimate),digits = 2),nsmall=2),
+                   " (",
+                   format(round(exp(`2.5 %`),digits = 2),nsmall=2),
+                   "-",
+                   format(round(exp(`97.5 %`),digits = 2),nsmall=2),
+                   ")"),
+         p=ifelse(p.value<0.001,"<0.001",as.character(format(round(p.value,digits = 3),nsmall=3)))) %>% 
+  select(scale,model,term,ci)
