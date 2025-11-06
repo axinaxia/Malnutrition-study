@@ -52,7 +52,9 @@ table1<-table1::table1(~age1+sex+education+lives1+tobacco1+mna_screening1_cat+gl
 colnames(table1)[1]<-"Characteristics"
 class(table1)<-"data.frame"
 table1<-table1 %>% 
-  filter(!grepl("0|male|Median",Characteristics))
+  filter(!grepl("0|Male|Median",Characteristics))
+
+table1[]<-lapply(table1, function(x) gsub("%", "", x))
 
 # 2. Impute missing data in variables with MICE ----
 imp<-mice(nutri_hcru_cov %>% 
@@ -154,7 +156,7 @@ nutri_pred_results<-nutri_pred_sum %>%
 annual_visits_95ci<-function(data,indices,scale,outcome,time) {
   data<-data %>% 
     group_by(lopnr,.data[[scale]],.data[[time]]) %>% 
-    summarise(sum_outcome=sum(.data[[outcome]]),.groups="drop")
+    summarise(sum_outcome=sum(.data[[outcome]],na.rm = T),.groups="drop")
     
   d<-data[indices, ] %>% 
     filter(!is.na(sum_outcome),
@@ -189,7 +191,7 @@ mna_sv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0),
                          conf.int=TRUE,conf.method="perc") %>% 
   cbind(c(1,2,3))
 
-mna_pv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
+mna_pv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(pv_fu>0), 
                               statistic = annual_visits_95ci, 
                               scale="mna_screening1_cat",
                               outcome="pv_num",time="pv_fu",
@@ -215,7 +217,7 @@ glim_sv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0),
                          conf.int=TRUE,conf.method="perc") %>% 
   cbind(c(1,2,3))
 
-glim_pv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
+glim_pv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(pv_fu>0), 
                               statistic = annual_visits_95ci, 
                               scale="glim_malnutr1",
                               outcome="pv_num",time="pv_fu",
@@ -319,8 +321,8 @@ nutri_mort_results<-summary(pool(mna_mort),conf.int = TRUE,conf.level = 0.95) %>
 writexl::write_xlsx(
   list(
     "table1" = table1,
-    "nutri_pred_results" = pred,
-    "nutri_mort_results" = mort
+    "pred" = nutri_pred_results,
+    "mort" = nutri_mort_results
   ),
   path = "Malnutrition statistical analysis/results.xlsx"
 )
