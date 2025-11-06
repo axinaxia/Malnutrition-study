@@ -51,21 +51,22 @@ table1::table1(~age1+education+lives1+tobacco1+mna_screening1_cat+glim_malnutr1+
 # 2. Impute missing data in variables with MICE ----
 imp<-mice(nutri_hcru_cov %>% 
             filter(fu>0) %>% 
+            distinct(lopnr,.keep_all = TRUE) %>% 
             select(lopnr,mna_screening1_cat,glim_malnutr1,age1,sex,education,lives1,tobacco1,
                    mi,hf,stroke,pd_dem,copd,ra_op,cancer,depression,
-                   smell_taste_imp,chew_imp,ov_num,sv_num,pv_num,fu,pv_fu,death),maxit=0,seed=2025)
+                   smell_taste_imp,chew_imp,fu,death),maxit=0,seed=2025)
 predM<-imp$predictorMatrix
-predM[,c("lopnr","ov_num","sv_num","pv_num","fu","pv_fu","death")]<-0
+predM[,c("lopnr","fu","death")]<-0
 meth<-imp$method
 meth[c("mna_screening1_cat","glim_malnutr1","education","tobacco1")]<-"polr"
-meth[c("pv_fu","death")]<-""
+meth[c("fu","death")]<-""
 
 nutri_hcru_cov_imp<-mice(nutri_hcru_cov %>% 
                            filter(fu>0) %>% 
                            select(lopnr,mna_screening1_cat,glim_malnutr1,age1,sex,
                                   bmi_cat_w1,education,lives1,tobacco1,
                                   mi,hf,stroke,pd_dem,copd,ra_op,cancer,depression,
-                                  smell_taste_imp,chew_imp,ov_num,sv_num,pv_num,fu,pv_fu,death),
+                                  smell_taste_imp,chew_imp,fu,death),
                          predictorMatrix = predM,method = meth,
                          m=5,maxit=20,seed=2025)
 
@@ -259,160 +260,9 @@ ggarrange(comb_ov_visits_plot,comb_sv_visits_plot,comb_pv_visits_plot,
 dev.off()
 
 
-# 5. Association between nutritional status and HCRU ----
-# function for poisson regression and summarising model output
-poisson_func<-function(scale,outcome,time,covlist){
-  
-  formula_str<-paste0(
-    outcome," ~ ",scale,"+", paste(covlist, collapse = " + ")
-  )
-  
-  temp_mod<-with(nutri_hcru_cov_imp,glm(as.formula(formula_str),
-                                           family = poisson(link = "log"),
-                                           offset = log(get(time))))
-  
-  temp_mod_sum<-summary(pool(temp_mod),conf.int = TRUE,conf.level = 0.95) %>% 
-    mutate(term=gsub("mna_screening1_cat", "", term),
-           term = trimws(term)) %>% 
-    filter(term!="(Intercept)",
-           !Reduce(`|`, lapply(covlist, function(x) grepl(paste0("^", x), term)))) %>% 
-    mutate(term=gsub(scale, "", term),
-           ci=paste0(format(round(exp(estimate),digits = 2),nsmall=2),
-                     " (",
-                     format(round(exp(`2.5 %`),digits = 2),nsmall=2),
-                     "-",
-                     format(round(exp(`97.5 %`),digits = 2),nsmall=2),
-                     ")"),
-           p=ifelse(p.value<0.001,"<0.001",as.character(format(round(p.value,digits = 3),nsmall=3)))) %>% 
-    select(term,ci)
-  
-  return(temp_mod_sum)
-}
 
 
-
-# 5.1. Association between MNA and HCRU adjusted for covariates ----
-# Poisson regression for the association between malnutrition and outpatient visits
-mna_ov_mod_sum<-poisson_func(scale="mna_screening1_cat",
-                                  outcome="ov_num",time="fu",
-                                  covlist = c("age1","sex"))
-
-
-mna_ov_mod_adj_sum<-poisson_func(scale="mna_screening1_cat",
-                              outcome="ov_num",time="fu",
-                              covlist = c("age1","sex","education","lives1","tobacco1","mi",
-                                          "hf","stroke","pd_dem","copd","ra_op","cancer",
-                                          "depression","smell_taste_imp","chew_imp"))
-
-
-
-# Poisson regression for the association between malnutrition and inpatient visits
-mna_sv_mod_sum<-poisson_func(scale="mna_screening1_cat",
-                              outcome="sv_num",time="fu",
-                              covlist = c("age1","sex"))
-
-
-mna_sv_mod_adj_sum<-poisson_func(scale="mna_screening1_cat",
-                                  outcome="sv_num",time="fu",
-                                  covlist = c("age1","sex","education","lives1","tobacco1","mi",
-                                              "hf","stroke","pd_dem","copd","ra_op","cancer",
-                                              "depression","smell_taste_imp","chew_imp"))
-
-
-
-# Poisson regression for the association between malnutrition and primary care visits
-mna_pv_mod_sum<-poisson_func(scale="mna_screening1_cat",
-                              outcome="pv_num",time="pv_fu",
-                              covlist = c("age1","sex"))
-
-
-mna_pv_mod_adj_sum<-poisson_func(scale="mna_screening1_cat",
-                                  outcome="pv_num",time="pv_fu",
-                                  covlist = c("age1","sex","education","lives1","tobacco1","mi",
-                                              "hf","stroke","pd_dem","copd","ra_op","cancer",
-                                              "depression","smell_taste_imp","chew_imp"))
-
-
-rbind(mna_ov_mod_sum %>% 
-        mutate(HCRU="Outpatient care visits"),
-      mna_sv_mod_sum %>% 
-        mutate(HCRU="Inpatient care visits"),
-      mna_pv_mod_sum %>% 
-        mutate(HCRU="Primary care visits")) %>% 
-  left_join(rbind(mna_ov_mod_adj_sum %>% 
-                    mutate(HCRU="Outpatient care visits"),
-                  mna_sv_mod_adj_sum %>% 
-                    mutate(HCRU="Inpatient care visits"),
-                  mna_pv_mod_adj_sum %>% 
-                    mutate(HCRU="Primary care visits")),
-            by = c("HCRU", "term"), suffix = c("Model 1", "Model 2")) %>% 
-  select(HCRU,everything()) %>% 
-  set_names(c("HCRU","Nutritional status","Rate ratio (95% CI)","Rate ratio (95% CI)"))
-
-
-
-# 5.2. Association between GLIM and HCRU adjusted for covariates ----
-# Poisson regression for the association between malnutrition and outpatient visits
-glim_ov_mod_sum<-poisson_func(scale="glim_malnutr1",
-                             outcome="ov_num",time="fu",
-                             covlist = c("age1","sex"))
-
-
-glim_ov_mod_adj_sum<-poisson_func(scale="glim_malnutr1",
-                                 outcome="ov_num",time="fu",
-                                 covlist = c("age1","sex","education","lives1","tobacco1","mi",
-                                             "hf","stroke","pd_dem","copd","ra_op","cancer",
-                                             "depression","smell_taste_imp","chew_imp"))
-
-
-
-# Poisson regression for the association between malnutrition and inpatient visits
-glim_sv_mod_sum<-poisson_func(scale="glim_malnutr1",
-                             outcome="sv_num",time="fu",
-                             covlist = c("age1","sex"))
-
-
-glim_sv_mod_adj_sum<-poisson_func(scale="glim_malnutr1",
-                                 outcome="sv_num",time="fu",
-                                 covlist = c("age1","sex","education","lives1","tobacco1","mi",
-                                             "hf","stroke","pd_dem","copd","ra_op","cancer",
-                                             "depression","smell_taste_imp","chew_imp"))
-
-
-
-# Poisson regression for the association between malnutrition and primary care visits
-glim_pv_mod_sum<-poisson_func(scale="glim_malnutr1",
-                             outcome="pv_num",time="pv_fu",
-                             covlist = c("age1","sex"))
-
-
-glim_pv_mod_adj_sum<-poisson_func(scale="glim_malnutr1",
-                                 outcome="pv_num",time="pv_fu",
-                                 covlist = c("age1","sex","education","lives1","tobacco1","mi",
-                                             "hf","stroke","pd_dem","copd","ra_op","cancer",
-                                             "depression","smell_taste_imp","chew_imp"))
-
-
-rbind(glim_ov_mod_sum %>% 
-        mutate(HCRU="Outpatient care visits"),
-      glim_sv_mod_sum %>% 
-        mutate(HCRU="Inpatient care visits"),
-      glim_pv_mod_sum %>% 
-        mutate(HCRU="Primary care visits")) %>% 
-  left_join(rbind(glim_ov_mod_adj_sum %>% 
-                    mutate(HCRU="Outpatient care visits"),
-                  glim_sv_mod_adj_sum %>% 
-                    mutate(HCRU="Inpatient care visits"),
-                  glim_pv_mod_adj_sum %>% 
-                    mutate(HCRU="Primary care visits")),
-            by = c("HCRU", "term"), suffix = c("Model 1", "Model 2")) %>% 
-  select(HCRU,everything()) %>% 
-  set_names(c("HCRU","Nutritional status","Rate ratio (95% CI)","Rate ratio (95% CI)"))
-
-
-
-
-# 6. Associations of MNA and GLIM with mortality ----
+# 5. Associations of MNA and GLIM with mortality ----
 mna_mort<-with(nutri_hcru_cov_imp,
                flexsurvreg(Surv(fu,death)~mna_screening1_cat+age1+sex,dist="weibullPH"))
 
