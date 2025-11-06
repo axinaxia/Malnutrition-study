@@ -12,7 +12,7 @@ library(ggpubr)
 
 setwd("~/Library/CloudStorage/OneDrive-SharedLibraries-KarolinskaInstitutet/GRP_Economic evaluations of malnutrition in Swedish older adults (KI Livsmedelsverket) - Documents/Individal level data analysis/Data/")
 #setwd("C:/Users/xinxia/Karolinska Institutet/GRP_Economic evaluations of malnutrition in Swedish older adults (KI Livsmedelsverket) - Documents/Individal level data analysis/Data/")
-source("Malnutrition statistical analysis/snack_data cleaning.R")
+source("Malnutrition statistical analysis/Malnutrition-study/snack_data cleaning.R")
 
 
 # 1. Baseline characteristics ----
@@ -324,5 +324,5 @@ writexl::write_xlsx(
     "pred" = nutri_pred_results,
     "mort" = nutri_mort_results
   ),
-  path = "Malnutrition statistical analysis/results.xlsx"
+  path = "Malnutrition statistical analysis/Malnutrition-study/results_xx.xlsx"
 )

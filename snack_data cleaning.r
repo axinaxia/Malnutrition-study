@@ -128,10 +128,10 @@ attri<-nutri_attr_cov %>%
 # For people with fu<0.25, change first year's HCRU to HCRU/fu
 #*********************************************************************************
 # 1.1. Average costs per MVO and CPI ----
-cpi<-read_excel("Malnutrition statistical analysis/CPI.xlsx") %>% as.data.frame()
+cpi<-read_excel("Malnutrition statistical analysis/Malnutrition-study/CPI.xlsx") %>% as.data.frame()
 
 # average costs per MVO for specialist outpatient care and inpatient care (2012-2019)
-mvo_npr<-read_excel("Malnutrition statistical analysis/MVO by care_XX_202510.xlsx",
+mvo_npr<-read_excel("Malnutrition statistical analysis/Malnutrition-study/MVO by care_XX_202510.xlsx",
                 sheet = "SV") %>% 
   as.data.frame
 # use costs per MVO for 2012 as proxy for 2001-2011, adjusting for inflation
@@ -162,7 +162,7 @@ mvo_npr<-mvo_npr %>%
 
 # average costs per MVO for primary care (2019)
 # assume primary care costs per MVO are the same across the years, adjusting for inflation
-mvo_pv<-read_excel("Malnutrition statistical analysis/MVO by care_XX_202510.xlsx",
+mvo_pv<-read_excel("Malnutrition statistical analysis/Malnutrition-study/MVO by care_XX_202510.xlsx",
                     sheet = "PV") %>% 
   as.data.frame %>% 
   rename(mvo=mvo_2019,
@@ -571,7 +571,7 @@ val_dis_w1<-val_2001_2012 %>%
   
 
 # import ICD codes to corresponding diseases
-icd_codes<-read_excel("Malnutrition statistical analysis/ICD codes_malnutrition study.xlsx") %>% 
+icd_codes<-read_excel("Malnutrition statistical analysis/Malnutrition-study/ICD codes_malnutrition study.xlsx") %>% 
   as.data.frame()
 
 icd_codes<-icd_codes %>%
