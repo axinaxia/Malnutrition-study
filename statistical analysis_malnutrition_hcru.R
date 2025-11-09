@@ -9,6 +9,7 @@ library(flexsurv)
 library(boot)
 library(forcats)
 library(ggpubr)
+library(scales)
 
 setwd("~/Library/CloudStorage/OneDrive-SharedLibraries-KarolinskaInstitutet/GRP_Economic evaluations of malnutrition in Swedish older adults (KI Livsmedelsverket) - Documents/Individal level data analysis/Data/")
 #setwd("C:/Users/xinxia/Karolinska Institutet/GRP_Economic evaluations of malnutrition in Swedish older adults (KI Livsmedelsverket) - Documents/Individal level data analysis/Data/")
@@ -153,7 +154,7 @@ nutri_pred_results<-nutri_pred_sum %>%
 
 # 4. Average care visits by nutritional status ----
 # function for summarising average care visits
-annual_visits_95ci<-function(data,indices,scale,outcome,time) {
+annual_hcru_95ci<-function(data,indices,scale,outcome,time) {
   data<-data %>% 
     group_by(lopnr,.data[[scale]],.data[[time]]) %>% 
     summarise(sum_outcome=sum(.data[[outcome]],na.rm = T),.groups="drop")
@@ -176,7 +177,7 @@ annual_visits_95ci<-function(data,indices,scale,outcome,time) {
 # 4.1. Average care visits by nutritional status defined by MNA ----
 set.seed(2025)
 mna_ov_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
-                              statistic = annual_visits_95ci, 
+                              statistic = annual_hcru_95ci, 
                               scale="mna_screening1_cat",
                               outcome="ov_num",time="fu",
                               R = 1000, parallel = "multicore", ncpus = 4),
@@ -184,7 +185,7 @@ mna_ov_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0),
   cbind(c(1,2,3))
 
 mna_sv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
-                              statistic = annual_visits_95ci, 
+                              statistic = annual_hcru_95ci, 
                               scale="mna_screening1_cat",
                               outcome="sv_num",time="fu",
                               R = 1000, parallel = "multicore", ncpus = 4),
@@ -192,7 +193,7 @@ mna_sv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0),
   cbind(c(1,2,3))
 
 mna_pv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(pv_fu>0), 
-                              statistic = annual_visits_95ci, 
+                              statistic = annual_hcru_95ci, 
                               scale="mna_screening1_cat",
                               outcome="pv_num",time="pv_fu",
                               R = 1000, parallel = "multicore", ncpus = 4),
@@ -200,61 +201,73 @@ mna_pv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(pv_fu>0),
   cbind(c(1,2,3))
 
 
-# 4.2. Average care visits by nutritional status defined by GLIM ----
-glim_ov_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
-                              statistic = annual_visits_95ci, 
-                              scale="glim_malnutr1",
-                              outcome="ov_num",time="fu",
+# 4.2. Average cost by nutritional status defined by GLIM ----
+set.seed(2025)
+mna_ov_costs_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
+                              statistic = annual_hcru_95ci, 
+                              scale="mna_screening1_cat",
+                              outcome="ov_cost",time="fu",
                               R = 1000, parallel = "multicore", ncpus = 4),
                          conf.int=TRUE,conf.method="perc") %>% 
   cbind(c(1,2,3))
 
-glim_sv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
-                              statistic = annual_visits_95ci, 
-                              scale="glim_malnutr1",
-                              outcome="sv_num",time="fu",
+mna_sv_costs_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(fu>0), 
+                              statistic = annual_hcru_95ci, 
+                              scale="mna_screening1_cat",
+                              outcome="sv_cost",time="fu",
                               R = 1000, parallel = "multicore", ncpus = 4),
                          conf.int=TRUE,conf.method="perc") %>% 
   cbind(c(1,2,3))
 
-glim_pv_visits_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(pv_fu>0), 
-                              statistic = annual_visits_95ci, 
-                              scale="glim_malnutr1",
-                              outcome="pv_num",time="pv_fu",
+mna_pv_costs_95ci<-tidy(boot(data = nutri_hcru_cov %>% filter(pv_fu>0), 
+                              statistic = annual_hcru_95ci, 
+                              scale="mna_screening1_cat",
+                              outcome="pv_cost",time="pv_fu",
                               R = 1000, parallel = "multicore", ncpus = 4),
                          conf.int=TRUE,conf.method="perc") %>% 
   cbind(c(1,2,3))
+
 
 
 # combine and visualize the results
 mna_labels<-c("Normal","At risk","Malnourished")
-glim_labels<-c("No malnutrition","Moderate malnutrition","Severe malnutrition")
+
 
 for (i in c("ov","sv","pv")) {
-  temp_mna<-get(paste0("mna_",i,"_visits_95ci")) %>% 
+  temp_num<-get(paste0("mna_",i,"_visits_95ci")) %>% 
     rename_with(~ "cat",6) %>% 
-    mutate(scale="MNA",
+    mutate(scale="Number",
            cat=factor(cat,levels=1:3,
-                      labels = str_wrap(mna_labels, width = 15)))
+                      labels = str_wrap(mna_labels, width = 15))) %>% 
+    rename(est=statistic,lb=conf.low,ub=conf.high)
   
-  temp_glim<-get(paste0("glim_",i,"_visits_95ci")) %>% 
+  temp_cost<-get(paste0("mna_",i,"_costs_95ci")) %>% 
     rename_with(~ "cat",6) %>% 
-    mutate(scale="GLIM",
+    mutate(scale="Costs",
            cat=factor(cat,levels=1:3,
-                      labels = str_wrap(glim_labels, width = 15)))
-  
-  temp_com<-bind_rows(temp_mna,temp_glim) %>% 
-    select(statistic,conf.low,conf.high,cat,scale) %>% 
-    rename(est=statistic,lb=conf.low,ub=conf.high) %>%
-    mutate(scale=factor(scale,levels=c("MNA","GLIM")))
+                      labels = str_wrap(mna_labels, width = 15))) %>% 
+    rename(est=statistic,lb=conf.low,ub=conf.high)
   
   assign(
-    paste0("comb_",i,"_visits_plot"),
-    ggplot(temp_com,aes(x=cat,y=est)) +
+    paste0(i,"_visits_plot"),
+    ggplot(temp_num,aes(x=cat,y=est)) +
       geom_col(fill="steelblue",width=0.6) +
       geom_errorbar(aes(ymin=lb,ymax=ub),width=0.2) +
-      facet_wrap(~ scale,ncol=2,scales="free_x") +
       labs(x="",y="Annual Visits and 95% CI",title="") +
+      theme_minimal(base_size=12) +
+      theme(panel.grid=element_blank(),
+            axis.line=element_line(color="black"),
+            panel.border=element_blank(),
+            axis.title.x = element_text(size=10))
+  )
+  
+  assign(
+    paste0(i,"_costs_plot"),
+    ggplot(temp_cost,aes(x=cat,y=est)) +
+      geom_col(fill="steelblue",width=0.6) +
+      geom_errorbar(aes(ymin=lb,ymax=ub),width=0.2) +
+      scale_y_continuous(labels = comma) +
+      labs(x="",y="Annual costs in 2024 SEK and 95% CI",title="") +
       theme_minimal(base_size=12) +
       theme(panel.grid=element_blank(),
             axis.line=element_line(color="black"),
@@ -265,10 +278,14 @@ for (i in c("ov","sv","pv")) {
 
 pdf("Malnutrition statistical analysis/figure_1_combined_visits.pdf",
     width=6,height=10)
-ggarrange(comb_ov_visits_plot,comb_sv_visits_plot,comb_pv_visits_plot,
-          ncol=1,nrow=3,labels=c("A. Outpatient care visits",
-                                 "B. Inpatient care visits",
-                                 "C. Primary care visits"))
+ggarrange(pv_visits_plot,ov_visits_plot,sv_visits_plot,
+          pv_costs_plot,ov_costs_plot,sv_costs_plot,
+          ncol=3,nrow=2,labels=c("A. Primary care",
+                                 "B. Outpatient care",
+                                 "C. Inpatient care",
+                                 "D. Primary care",
+                                 "E. Outpatient care",
+                                 "F. Inpatient care"))
 dev.off()
 
 

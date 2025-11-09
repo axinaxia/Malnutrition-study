@@ -243,7 +243,7 @@ pv_num<-pv_num %>%
          pv_num=ifelse(last_year==1&(fu-fu_year_max)>=0.25|fu<0.25,
                        round(pv_num/(fu-fu_year_max),0),
                        pv_num),
-         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25,
+         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25&fu>=0.25,
                           fu_year-1,
                           fu_year))%>% 
   group_by(lopnr,fu_year) %>% 
@@ -264,15 +264,14 @@ pv_costs<-pv_costs %>%
               select(year,cost_ave=cost)) %>% 
   mutate(cost=ifelse(is.na(cost),cost_ave,cost)) %>% 
   select(-cost_ave) %>% 
-  group_by(lopnr,fu_year,fu) %>% 
+  group_by(lopnr,date1,fu_year,fu) %>% 
   summarise(cost=sum(cost)) %>% 
   ungroup %>% 
   right_join(pv_fu_years) %>% 
   group_by(lopnr) %>% 
   mutate(cost=ifelse(is.na(cost),0,cost)) %>% 
   fill(fu, .direction = "downup") %>% 
-  ungroup %>% 
-  arrange(lopnr,fu_year)
+  ungroup
 
 pv_costs<-pv_costs %>% 
   group_by(lopnr) %>% 
@@ -282,14 +281,23 @@ pv_costs<-pv_costs %>%
          cost=ifelse(last_year==1&(fu-fu_year_max)>=0.25|fu<0.25,
                        round(cost/(fu-fu_year_max),0),
                        cost),
-         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25,
+         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25&fu>=0.25,
                         fu_year-1,
-                        fu_year))%>% 
-  group_by(lopnr,fu_year) %>% 
+                        fu_year)) %>% 
+  group_by(lopnr) %>% 
+  fill(date1, .direction = "downup") %>% 
+  ungroup %>% 
+  group_by(lopnr,date1,fu_year) %>% 
   summarise(cost=sum(cost)) %>%
-  ungroup
+  ungroup %>% 
+  mutate(hcru_year=as.numeric(substr(as.character(date1),1,4))+fu_year) %>% 
+  arrange(lopnr,fu_year)
 
-
+# convert costs to 2024 SEK
+pv_costs<-pv_costs %>% 
+  left_join(cpi %>% 
+              mutate(hcru_year=as.numeric(year))) %>% 
+  mutate(cost=cost*(CPI/((cpi %>% filter(year==2024))$CPI))) 
 
 
 # 1.3. Outpatient care ----
@@ -347,7 +355,7 @@ ov_num<-ov_num %>%
          ov_num=ifelse(last_year==1&(fu-fu_year_max)>=0.25|fu<0.25,
                        round(ov_num/(fu-fu_year_max),0),
                        ov_num),
-         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25,
+         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25&fu>=0.25,
                         fu_year-1,
                         fu_year))%>% 
   group_by(lopnr,fu_year) %>% 
@@ -370,15 +378,14 @@ ov_costs<-ov_costs %>%
               select(year,cost_ave=cost)) %>% 
   mutate(cost=ifelse(is.na(cost),cost_ave,cost)) %>% 
   select(-cost_ave) %>% 
-  group_by(lopnr,fu_year,fu) %>% 
+  group_by(lopnr,date1,fu_year,fu) %>% 
   summarise(cost=sum(cost)) %>% 
   ungroup %>% 
   right_join(ov_fu_years) %>% 
   group_by(lopnr) %>% 
   mutate(cost=ifelse(is.na(cost),0,cost)) %>% 
   fill(fu, .direction = "downup") %>% 
-  ungroup %>% 
-  arrange(lopnr,fu_year)
+  ungroup
 
 
 
@@ -390,12 +397,23 @@ ov_costs<-ov_costs %>%
          cost=ifelse(last_year==1&(fu-fu_year_max)>=0.25|fu<0.25,
                      round(cost/(fu-fu_year_max),0),
                      cost),
-         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25,
+         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25&fu>=0.25,
                         fu_year-1,
-                        fu_year))%>% 
-  group_by(lopnr,fu_year) %>% 
+                        fu_year)) %>%  
+  group_by(lopnr) %>% 
+  fill(date1, .direction = "downup") %>% 
+  ungroup %>%  
+  group_by(lopnr,date1,fu_year) %>% 
   summarise(cost=sum(cost)) %>%
-  ungroup
+  ungroup %>% 
+  mutate(hcru_year=as.numeric(substr(as.character(date1),1,4))+fu_year) %>% 
+  arrange(lopnr,fu_year)
+
+# convert costs to 2024 SEK
+ov_costs<-ov_costs %>% 
+  left_join(cpi %>% 
+              mutate(hcru_year=as.numeric(year))) %>% 
+  mutate(cost=cost*(CPI/((cpi %>% filter(year==2024))$CPI))) 
 
 
 
@@ -456,7 +474,7 @@ sv_num<-sv_num %>%
          sv_num=ifelse(last_year==1&(fu-fu_year_max)>=0.25|fu<0.25,
                        round(sv_num/(fu-fu_year_max),0),
                        sv_num),
-         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25,
+         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25&fu>=0.25,
                         fu_year-1,
                         fu_year))%>% 
   group_by(lopnr,fu_year) %>% 
@@ -479,15 +497,14 @@ sv_costs<-sv_costs %>%
               select(year,cost_ave=cost)) %>% 
   mutate(cost=ifelse(is.na(cost),cost_ave,cost)) %>% 
   select(-cost_ave) %>% 
-  group_by(lopnr,fu_year,fu) %>% 
+  group_by(lopnr,date1,fu_year,fu) %>% 
   summarise(cost=sum(cost)) %>% 
   ungroup %>% 
   right_join(sv_fu_years) %>% 
   group_by(lopnr) %>% 
   mutate(cost=ifelse(is.na(cost),0,cost)) %>% 
   fill(fu, .direction = "downup") %>% 
-  ungroup %>% 
-  arrange(lopnr,fu_year)
+  ungroup
 
 sv_costs<-sv_costs %>% 
   group_by(lopnr) %>% 
@@ -497,12 +514,26 @@ sv_costs<-sv_costs %>%
          cost=ifelse(last_year==1&(fu-fu_year_max)>=0.25|fu<0.25,
                      round(cost/(fu-fu_year_max),0),
                      cost),
-         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25,
+         fu_year=ifelse(last_year==1&(fu-fu_year_max)<0.25&fu>=0.25,
                         fu_year-1,
-                        fu_year))%>% 
-  group_by(lopnr,fu_year) %>% 
+                        fu_year)) %>% 
+  group_by(lopnr) %>% 
+  fill(date1, .direction = "downup") %>% 
+  ungroup %>% 
+  group_by(lopnr,date1,fu_year) %>% 
   summarise(cost=sum(cost)) %>%
-  ungroup
+  ungroup %>% 
+  mutate(hcru_year=as.numeric(substr(as.character(date1),1,4))+fu_year) %>% 
+  arrange(lopnr,fu_year)
+
+
+# convert costs to 2024 SEK
+sv_costs<-sv_costs %>% 
+  left_join(cpi %>% 
+              mutate(hcru_year=as.numeric(year))) %>% 
+  mutate(cost=cost*(CPI/((cpi %>% filter(year==2024))$CPI))) 
+
+
 
 
 # 1.5. Drug use ----
@@ -726,10 +757,6 @@ nutri_hcru_cov<-nutri_attr_cov %>%
   mutate(across(c(pv_num, pv_cost),~ if_else(fu_year<=max_pv_fu_year, replace_na(., 0), .))) %>% 
   mutate(total_cost=ov_cost+sv_cost+pv_cost)
   
-
-n_distinct((nutri_hcru_cov %>% 
-               filter(fu>0))$lopnr)
-
 
 write_dta(nutri_hcru_cov %>% 
             filter(fu>0),"nutri_hcru_cov_xx.dta")
