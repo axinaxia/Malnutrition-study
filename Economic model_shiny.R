@@ -35,7 +35,8 @@ txt <- list(
     col_de = "Incremental effect",
     col_icer = "Incremental cost-effectiveness ratio (ICER)",
     invalid_decimal = "Please enter valid numeric values using . or , as decimal separator.",
-    invalid_range = "Risk reduction inputs must be between 0 and 1."
+    invalid_rr_range = "Value must be between 0 and 1.",
+    invalid_rr_conv = "Value must be between 0 and 1."
   ),
   sv = list(
     app_title = "Hälsoekonomisk modell av insatser mot undernäring hos äldre i Sverige",
@@ -65,7 +66,8 @@ txt <- list(
     col_de = "Inkrementell effekt",
     col_icer = "Inkrementell kostnadseffektivitetskvot (ICER)",
     invalid_decimal = "Ange giltiga numeriska värden med . eller , som decimaltecken.",
-    invalid_range = "Riskreduktionsvärden måste ligga mellan 0 och 1."
+    invalid_rr_range = "Värden måste ligga mellan 0 och 1.",
+    invalid_rr_conv = "Värden måste ligga mellan 0 och 1."
   )
 )
 
@@ -80,6 +82,14 @@ parse_decimal <- function(x) {
 
 fmt_decimal_input <- function(x, digits = 2) {
   formatC(x, format = "f", digits = digits, decimal.mark = ".")
+}
+
+format_num0 <- function(x) {
+  ifelse(is.na(x), "-", format(round(x, 0), big.mark = ",", decimal.mark = ".", scientific = FALSE))
+}
+
+format_num2 <- function(x) {
+  ifelse(is.na(x), "-", format(round(x, 2), nsmall = 2, decimal.mark = ".", scientific = FALSE))
 }
 
 # =========================
@@ -115,7 +125,16 @@ get_tp_values <- function(tp_table) {
 # =========================
 # heemod model
 # =========================
-malnu_model <- function(n_pop, rr_red, rr_conv, rr_mort, cost_int_gen, cost_int_geri_add, n_cycles, lang = "en") {
+malnu_model <- function(
+    n_pop,
+    rr_red,
+    rr_conv,
+    rr_mort,
+    cost_int_gen,
+    cost_int_geri_add,
+    n_cycles,
+    lang = "en"
+) {
   tr <- txt[[lang]]
   
   tp_vals <- get_tp_values(tp_table)
@@ -127,9 +146,9 @@ malnu_model <- function(n_pop, rr_red, rr_conv, rr_mort, cost_int_gen, cost_int_
   tp32 <- tp_vals$tp32
   tp34 <- tp_vals$tp34
   
-  n_state1 <- round(n_pop * 0.6776, digits = 0)
-  n_state2 <- round(n_pop * 0.2858, digits = 0)
-  n_state3 <- round(n_pop * 0.0366, digits = 0)
+  n_state1 <- round(n_pop * 0.68, digits = 0)
+  n_state2 <- round(n_pop * 0.28, digits = 0)
+  n_state3 <- round(n_pop * 0.04, digits = 0)
   
   para <- define_parameters(
     prop_geri_state1 = 0.01,
@@ -187,55 +206,79 @@ malnu_model <- function(n_pop, rr_red, rr_conv, rr_mort, cost_int_gen, cost_int_
   )
   
   state1 <- define_state(
-    cost_care = ((state1_cost_gen) * (1 - prop_geri_state1) +
-                   state1_cost_geri * prop_geri_state1) * disc_fac,
+    cost_care = (
+      (state1_cost_gen) * (1 - prop_geri_state1) +
+        state1_cost_geri * prop_geri_state1
+    ) * disc_fac,
     
-    cost_rx = (cost_rx * (1 - prop_geri_state1) +
-                 (cost_rx + cost_int_geri_add) * prop_geri_state1) * disc_fac,
+    cost_rx = (
+      cost_rx * (1 - prop_geri_state1) +
+        (cost_rx + cost_int_geri_add) * prop_geri_state1
+    ) * disc_fac,
     
-    cost_total = ((state1_cost_gen) * (1 - prop_geri_state1) +
-                    state1_cost_geri * prop_geri_state1 +
-                    cost_rx * (1 - prop_geri_state1) +
-                    (cost_rx + cost_int_geri_add) * prop_geri_state1) * disc_fac,
+    cost_total = (
+      state1_cost_gen * (1 - prop_geri_state1) +
+        state1_cost_geri * prop_geri_state1 +
+        cost_rx * (1 - prop_geri_state1) +
+        (cost_rx + cost_int_geri_add) * prop_geri_state1
+    ) * disc_fac,
     
-    utility = (state1_utility * (1 - prop_geri_state1) +
-                 (state1_utility - geri_disutility) * prop_geri_state1) * disc_fac,
+    utility = (
+      state1_utility * (1 - prop_geri_state1) +
+        (state1_utility - geri_disutility) * prop_geri_state1
+    ) * disc_fac,
     
     life_year = 1
   )
   
   state2 <- define_state(
-    cost_care = ((state2_cost_gen) * (1 - prop_geri_state2) +
-                   state2_cost_geri * prop_geri_state2) * disc_fac,
+    cost_care = (
+      state2_cost_gen * (1 - prop_geri_state2) +
+        state2_cost_geri * prop_geri_state2
+    ) * disc_fac,
     
-    cost_rx = (cost_rx * (1 - prop_geri_state2) +
-                 (cost_rx + cost_int_geri_add) * prop_geri_state2) * disc_fac,
+    cost_rx = (
+      cost_rx * (1 - prop_geri_state2) +
+        (cost_rx + cost_int_geri_add) * prop_geri_state2
+    ) * disc_fac,
     
-    cost_total = ((state2_cost_gen) * (1 - prop_geri_state2) +
-                    state2_cost_geri * prop_geri_state2 +
-                    cost_rx * (1 - prop_geri_state2) +
-                    (cost_rx + cost_int_geri_add) * prop_geri_state2) * disc_fac,
+    cost_total = (
+      state2_cost_gen * (1 - prop_geri_state2) +
+        state2_cost_geri * prop_geri_state2 +
+        cost_rx * (1 - prop_geri_state2) +
+        (cost_rx + cost_int_geri_add) * prop_geri_state2
+    ) * disc_fac,
     
-    utility = (state2_utility * (1 - prop_geri_state2) +
-                 (state2_utility - geri_disutility) * prop_geri_state2) * disc_fac,
+    utility = (
+      state2_utility * (1 - prop_geri_state2) +
+        (state2_utility - geri_disutility) * prop_geri_state2
+    ) * disc_fac,
     
     life_year = 1
   )
   
   state3 <- define_state(
-    cost_care = ((state3_cost_gen) * (1 - prop_geri_state3) +
-                   state3_cost_geri * prop_geri_state3) * disc_fac,
+    cost_care = (
+      state3_cost_gen * (1 - prop_geri_state3) +
+        state3_cost_geri * prop_geri_state3
+    ) * disc_fac,
     
-    cost_rx = (cost_rx * (1 - prop_geri_state3) +
-                 (cost_rx + cost_int_geri_add) * prop_geri_state3) * disc_fac,
+    cost_rx = (
+      cost_rx * (1 - prop_geri_state3) +
+        (cost_rx + cost_int_geri_add) * prop_geri_state3
+    ) * disc_fac,
     
-    cost_total = ((state3_cost_gen) * (1 - prop_geri_state3) +
-                    state3_cost_geri * prop_geri_state3 +
-                    cost_rx * (1 - prop_geri_state3) +
-                    (cost_rx + cost_int_geri_add) * prop_geri_state3) * disc_fac,
+    cost_total = (
+      state3_cost_gen * (1 - prop_geri_state3) +
+        state3_cost_geri * prop_geri_state3 +
+        cost_rx * (1 - prop_geri_state3) +
+        (cost_rx + cost_int_geri_add) * prop_geri_state3
+    ) * disc_fac,
     
-    utility = (state3_utility * (1 - prop_geri_state3) +
-                 (state3_utility - geri_disutility) * prop_geri_state3) * disc_fac,
+    utility = (
+      state3_utility * (1 - prop_geri_state3) +
+        (state3_utility - geri_disutility) * prop_geri_state3
+    ) * disc_fac,
     
     life_year = 1
   )
@@ -275,7 +318,8 @@ malnu_model <- function(n_pop, rr_red, rr_conv, rr_mort, cost_int_gen, cost_int_
     method = "life-table"
   )
   
-  summary_tbl <- res_mod$run_model %>%
+  # Keep stable internal column names
+  summary_raw <- res_mod$run_model %>%
     select(cost_care:life_year) %>%
     rbind(
       res_mod$run_model %>%
@@ -283,34 +327,33 @@ malnu_model <- function(n_pop, rr_red, rr_conv, rr_mort, cost_int_gen, cost_int_
         summarise(across(everything(), ~ .[2] - .[1]))
     ) %>%
     as.data.frame() %>%
-    mutate(strategy = c(tr$strategy_soc, tr$strategy_int, tr$strategy_diff)) %>%
     mutate(
-      dc   = ifelse(strategy == tr$strategy_diff, cost_total / n_pop, NA_real_),
-      de   = ifelse(strategy == tr$strategy_diff, utility / n_pop, NA_real_),
+      strategy = c(tr$strategy_soc, tr$strategy_int, tr$strategy_diff),
+      dc = ifelse(strategy == tr$strategy_diff, cost_total / n_pop, NA_real_),
+      de = ifelse(strategy == tr$strategy_diff, utility / n_pop, NA_real_),
       ICER = ifelse(strategy == tr$strategy_diff, cost_total / utility, NA_real_)
     ) %>%
+    select(strategy, cost_care, cost_rx, cost_total, utility, life_year, dc, de, ICER)
+  
+  summary_fmt <- summary_raw %>%
     mutate(
-      across(
-        c(cost_care, cost_rx, cost_total, utility, life_year, dc, ICER),
-        ~ ifelse(is.na(.x), "-", format(round(.x, 0), big.mark = ",", decimal.mark = "."))
-      ),
-      de = ifelse(is.na(de), "-", format(round(de, 2), nsmall = 2, decimal.mark = "."))
-    ) %>%
-    select(strategy, everything()) %>%
-    setNames(c(
-      tr$col_strategy, tr$col_cost_care,
-      tr$col_cost_rx, tr$col_cost_total,
-      tr$col_qaly, tr$col_ly,
-      tr$col_dc, tr$col_de, tr$col_icer
-    ))
+      cost_care = format_num0(cost_care),
+      cost_rx = format_num0(cost_rx),
+      cost_total = format_num0(cost_total),
+      utility = format_num0(utility),
+      life_year = format_num0(life_year),
+      dc = format_num0(dc),
+      de = format_num2(de),
+      ICER = format_num0(ICER)
+    )
   
   list(
     model = res_mod,
-    summary = summary_tbl %>%
-      select(-c(all_of(c(tr$col_dc, tr$col_de, tr$col_icer)))),
-    icer = summary_tbl %>%
-      filter(.data[[tr$col_strategy]] == tr$strategy_diff) %>%
-      select(all_of(c(tr$col_strategy, tr$col_dc, tr$col_de, tr$col_icer)))
+    summary = summary_fmt %>%
+      select(strategy, cost_care, cost_rx, cost_total, utility, life_year),
+    icer = summary_fmt %>%
+      filter(strategy == tr$strategy_diff) %>%
+      select(strategy, dc, de, ICER)
   )
 }
 
@@ -327,7 +370,7 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   tr <- reactive({
-    lang <- if (is.null(input$lang)) "en" else input$lang
+    lang <- if (is.null(input$lang)) "sv" else input$lang
     txt[[lang]]
   })
   
@@ -340,14 +383,12 @@ server <- function(input, output, session) {
             "lang",
             tr()$language,
             choices = setNames(c("en", "sv"), c(tr()$lang_en, tr()$lang_sv)),
-            selected = if (is.null(input$lang)) "en" else input$lang
+            selected = if (is.null(input$lang)) "sv" else input$lang
           ),
           numericInput("n_pop", tr()$n_pop, value = 1000, min = 1),
-          
           textInput("rr_red", tr()$rr_red, value = fmt_decimal_input(0.20, 2)),
           textInput("rr_conv", tr()$rr_conv, value = fmt_decimal_input(0.20, 2)),
           textInput("rr_mort", tr()$rr_mort, value = fmt_decimal_input(0.00, 2)),
-          
           numericInput("cost_int_gen", tr()$cost_int_gen, value = 10000, min = 0),
           numericInput("cost_int_geri_add", tr()$cost_int_geri_add, value = 0, min = 0),
           numericInput("n_cycles", tr()$n_cycles, value = 40, min = 1),
@@ -363,12 +404,6 @@ server <- function(input, output, session) {
     )
   })
   
-  observe({
-    if (is.null(input$lang)) {
-      updateSelectInput(session, "lang", selected = "sv")
-    }
-  })
-  
   rr_red_num <- reactive(parse_decimal(input$rr_red))
   rr_conv_num <- reactive(parse_decimal(input$rr_conv))
   rr_mort_num <- reactive(parse_decimal(input$rr_mort))
@@ -378,9 +413,9 @@ server <- function(input, output, session) {
     
     validate(
       need(!is.na(rr_red_num()) && !is.na(rr_conv_num()) && !is.na(rr_mort_num()), tr()$invalid_decimal),
-      need(rr_red_num() >= 0 && rr_red_num() <= 1, tr()$invalid_range),
-      need(rr_mort_num() >= 0 && rr_mort_num() <= 1, tr()$invalid_range),
-      need(rr_conv_num() >= 0, tr()$invalid_decimal)
+      need(rr_red_num() >= 0 && rr_red_num() <= 1, tr()$invalid_rr_range),
+      need(rr_mort_num() >= 0 && rr_mort_num() <= 1, tr()$invalid_rr_range),
+      need(rr_conv_num() >= 0, tr()$invalid_rr_conv)
     )
     
     malnu_model(
@@ -397,8 +432,19 @@ server <- function(input, output, session) {
   
   output$summary_tbl <- renderDT({
     req(results())
+    
+    tbl <- results()$summary
+    names(tbl) <- c(
+      tr()$col_strategy,
+      tr()$col_cost_care,
+      tr()$col_cost_rx,
+      tr()$col_cost_total,
+      tr()$col_qaly,
+      tr()$col_ly
+    )
+    
     datatable(
-      results()$summary,
+      tbl,
       rownames = FALSE,
       options = list(pageLength = 10, scrollX = TRUE)
     )
@@ -406,8 +452,17 @@ server <- function(input, output, session) {
   
   output$icer <- renderDT({
     req(results())
+    
+    tbl <- results()$icer
+    names(tbl) <- c(
+      tr()$col_strategy,
+      tr()$col_dc,
+      tr()$col_de,
+      tr()$col_icer
+    )
+    
     datatable(
-      results()$icer,
+      tbl,
       rownames = FALSE,
       options = list(pageLength = 10, scrollX = TRUE)
     )
