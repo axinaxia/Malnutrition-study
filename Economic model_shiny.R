@@ -171,7 +171,7 @@ malnu_model <- function(
     
     disc_fac = exp(-0.03 * (model_time - 1)),
     
-    cost_rx = dispatch_strategy(
+    cost_rx_par = dispatch_strategy(
       strat_soc = 0,
       strat_int = cost_int_gen
     )
@@ -212,15 +212,8 @@ malnu_model <- function(
     ) * disc_fac,
     
     cost_rx = (
-      cost_rx * (1 - prop_geri_state1) +
-        (cost_rx + cost_int_geri_add) * prop_geri_state1
-    ) * disc_fac,
-    
-    cost_total = (
-      state1_cost_gen * (1 - prop_geri_state1) +
-        state1_cost_geri * prop_geri_state1 +
-        cost_rx * (1 - prop_geri_state1) +
-        (cost_rx + cost_int_geri_add) * prop_geri_state1
+      cost_rx_par * (1 - prop_geri_state1) +
+        (cost_rx_par + cost_int_geri_add) * prop_geri_state1
     ) * disc_fac,
     
     utility = (
@@ -238,15 +231,8 @@ malnu_model <- function(
     ) * disc_fac,
     
     cost_rx = (
-      cost_rx * (1 - prop_geri_state2) +
-        (cost_rx + cost_int_geri_add) * prop_geri_state2
-    ) * disc_fac,
-    
-    cost_total = (
-      state2_cost_gen * (1 - prop_geri_state2) +
-        state2_cost_geri * prop_geri_state2 +
-        cost_rx * (1 - prop_geri_state2) +
-        (cost_rx + cost_int_geri_add) * prop_geri_state2
+      cost_rx_par * (1 - prop_geri_state2) +
+        (cost_rx_par + cost_int_geri_add) * prop_geri_state2
     ) * disc_fac,
     
     utility = (
@@ -264,15 +250,8 @@ malnu_model <- function(
     ) * disc_fac,
     
     cost_rx = (
-      cost_rx * (1 - prop_geri_state3) +
-        (cost_rx + cost_int_geri_add) * prop_geri_state3
-    ) * disc_fac,
-    
-    cost_total = (
-      state3_cost_gen * (1 - prop_geri_state3) +
-        state3_cost_geri * prop_geri_state3 +
-        cost_rx * (1 - prop_geri_state3) +
-        (cost_rx + cost_int_geri_add) * prop_geri_state3
+      cost_rx_par * (1 - prop_geri_state3) +
+        (cost_rx_par + cost_int_geri_add) * prop_geri_state3
     ) * disc_fac,
     
     utility = (
@@ -286,7 +265,6 @@ malnu_model <- function(
   state4 <- define_state(
     cost_care = 0,
     cost_rx = 0,
-    cost_total = 0,
     utility = 0,
     life_year = 0
   )
@@ -313,7 +291,7 @@ malnu_model <- function(
     parameters = para,
     init = c(state1 = n_state1, state2 = n_state2, state3 = n_state3, state4 = 0),
     cycles = n_cycles,
-    cost = cost_total,
+    cost = cost_care,
     effect = utility,
     method = "life-table"
   )
@@ -329,6 +307,7 @@ malnu_model <- function(
     as.data.frame() %>%
     mutate(
       strategy = c(tr$strategy_soc, tr$strategy_int, tr$strategy_diff),
+      cost_total = cost_care + cost_rx,
       dc = ifelse(strategy == tr$strategy_diff, cost_total / n_pop, NA_real_),
       de = ifelse(strategy == tr$strategy_diff, utility / n_pop, NA_real_),
       ICER = ifelse(strategy == tr$strategy_diff, cost_total / utility, NA_real_)
