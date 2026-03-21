@@ -6,7 +6,11 @@ Access the interactive economic model shiny app here: [Malnutrition Study Econom
 
 ## Description
 
-This repository contains the R Shiny application for the malnutrition study economic model. The app allows users to explore and analyze economic aspects of malnutrition burden and healthcare resource utilization.
+This repository contains the R Shiny application for the malnutrition study economic model. The app allows users to explore the costs and effects of interventions for malnutrition of different effects.
+
+## Beskrivning (Swedish)
+
+Den här databasen innehåller R Shiny-applikationen för ekonomisk modellering av undernäring. Appen tillåter användare att utforska kostnaderna och effekterna av interventioner för undernäring av olika effekter.
 
 ## Files
 
