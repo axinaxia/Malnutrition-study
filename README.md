@@ -1,9 +1,8 @@
 # Hälsoekonomisk modell av insatser mot undernäring hos äldre i Sverige
-# Health Economic Model of Interventions for Malnutrition in Older Adults in Sweden
 
 ## Shiny App
 
-Access the interactive economic model shiny app here: [Malnutrition Study Economic Model](https://axinaxia.shinyapps.io/Malnutrition-study/)
+Öppna den interaktiva hälsoekonomiska modellen här: [Undernäring hälsoekonomisk modell](https://axinaxia.shinyapps.io/Malnutrition-study/)
 
 ## Beskrivning (Swedish)
 
