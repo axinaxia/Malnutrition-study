@@ -1,0 +1,13 @@
+name: Malnutrition-study
+title: Malnutrition-study
+username: axinaxia
+account: axinaxia
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16951719
+bundleId: 11740640
+url: https://axinaxia.shinyapps.io/Malnutrition-study/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: -KI-WH3WMV7PP9.Rhistory|.RData|.RDataTmp|Brazier_calculating utility index from SF12_2004.pdf|btyp and vdg.xlsx|CPI.xlsx|data for estimating burden of malnutrition.xlsx|Documentation of scripts_XX.xlsx|DRG_2012-2021.xlsx|economic model.R|EKVARDGREN värden.png|Huvuddiagnos in SLSO.xlsx|ICD and ATC codes for malnutrition study_svedem.xlsx|ICD codes for diseases in SLSO.xlsx|ICD codes_malnutrition study_snack.xlsx|icd10cm-tabular-2024.xml|Kolada-dagverksamhet.pdf|Kolada-dagverksamhet.xlsx|Kolada-Kostnad särskilt boende äldreomsorg, kr:brukare.pdf|Kolada-Kostnad särskilt boende äldreomsorg, kr:brukare.xlsx|kombika_klin_spec_regions_stockholm.xlsx|konverteringstabell-icd10-to-icd9.pdf|konverteringstabell-icd9-icd10-forklaring-exempel.xls|Malnutrition burden and economic model.R|Malnutrition model_input parameters.xlsx|malnutrition_annual_hcru_slso.do|malnutrition_annual_hcru_snack.do|malnutrition_annual_hcru_svedem.do|Malnutrition_data cleaning_slso.R|Malnutrition_data cleaning_snack.R|Malnutrition_data cleaning_svedem.R|malnutrition_handle missing_snack.do|malnutrition_model comparisons_slso.do|malnutrition_model comparisons_snack.do|malnutrition_model comparisons_svedem.do|malnutrition_prevalence.do|malnutrition_risk factors_mortality.do|Malnutrition-study - genväg.lnk|mna_sf_analysis.do|MVO by care_XX_202510.xlsx|older syntaxes/Malnutrition_analysis_snack.R|older syntaxes/malnutrition_prevalence_svedem copy.do|older syntaxes/malnutrition_prevalence_svedem.do|older syntaxes/statistical_analysis_malnutrition_YMB.R|population fraction_multisjukdom data.R|README.md|Retrospektiva DRG-vikter psykiatrisk vård 2018-2024 ny.xlsx|Retrospektiva DRG-vikter somatisk vård 2012-2024 ny.xlsx|SF6D-SF12util_example_LJ.R|Short-form-12-health-survey-questionnaire.pdf|SNAC-K SF-12 to utility index.R|tp_table.rds|Unit cost from KOLADA_2024.xlsx|results
