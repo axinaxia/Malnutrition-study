@@ -1,4 +1,5 @@
-# Malnutrition Study - Economic Model Shiny App
+# Hälsoekonomisk modell av insatser mot undernäring hos äldre i Sverige
+# Health Economic Model of Interventions for Malnutrition in Older Adults in Sweden
 
 ## Shiny App
 
