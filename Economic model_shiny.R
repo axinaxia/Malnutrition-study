@@ -33,7 +33,9 @@ txt <- list(
     col_ly = "Life years",
     col_dc = "Incremental cost",
     col_de = "Incremental effect",
-    col_icer = "ICER"
+    col_icer = "Incremental cost-effectiveness ratio (ICER)",
+    invalid_decimal = "Please enter valid numeric values using . or , as decimal separator.",
+    invalid_range = "Risk reduction inputs must be between 0 and 1."
   ),
   sv = list(
     app_title = "Hälsoekonomisk modell av insatser mot undernäring hos äldre i Sverige",
@@ -61,9 +63,24 @@ txt <- list(
     col_ly = "Levnadsår",
     col_dc = "Inkrementell kostnad",
     col_de = "Inkrementell effekt",
-    col_icer = "ICER"
+    col_icer = "Inkrementell kostnadseffektivitetskvot (ICER)",
+    invalid_decimal = "Ange giltiga numeriska värden med . eller , som decimaltecken.",
+    invalid_range = "Riskreduktionsvärden måste ligga mellan 0 och 1."
   )
 )
+
+# =========================
+# Helpers
+# =========================
+parse_decimal <- function(x) {
+  x <- trimws(x)
+  x <- gsub(",", ".", x, fixed = TRUE)
+  suppressWarnings(as.numeric(x))
+}
+
+fmt_decimal_input <- function(x, digits = 2) {
+  formatC(x, format = "f", digits = digits, decimal.mark = ".")
+}
 
 # =========================
 # Transition probabilities
@@ -275,9 +292,9 @@ malnu_model <- function(n_pop, rr_red, rr_conv, rr_mort, cost_int_gen, cost_int_
     mutate(
       across(
         c(cost_care, cost_rx, cost_total, utility, life_year, dc, ICER),
-        ~ ifelse(is.na(.x), "-", format(round(.x, 0), big.mark = ","))
+        ~ ifelse(is.na(.x), "-", format(round(.x, 0), big.mark = ",", decimal.mark = "."))
       ),
-      de = ifelse(is.na(de), "-", format(round(de, 2), nsmall = 2))
+      de = ifelse(is.na(de), "-", format(round(de, 2), nsmall = 2, decimal.mark = "."))
     ) %>%
     select(strategy, everything()) %>%
     setNames(c(
@@ -326,9 +343,11 @@ server <- function(input, output, session) {
             selected = if (is.null(input$lang)) "en" else input$lang
           ),
           numericInput("n_pop", tr()$n_pop, value = 1000, min = 1),
-          numericInput("rr_red", tr()$rr_red, value = 0.20, min = 0, max = 1, step = 0.01),
-          numericInput("rr_conv", tr()$rr_conv, value = 0.20, min = 0, step = 0.01),
-          numericInput("rr_mort", tr()$rr_mort, value = 0.00, min = 0, max = 1, step = 0.01),
+          
+          textInput("rr_red", tr()$rr_red, value = fmt_decimal_input(0.20, 2)),
+          textInput("rr_conv", tr()$rr_conv, value = fmt_decimal_input(0.20, 2)),
+          textInput("rr_mort", tr()$rr_mort, value = fmt_decimal_input(0.00, 2)),
+          
           numericInput("cost_int_gen", tr()$cost_int_gen, value = 10000, min = 0),
           numericInput("cost_int_geri_add", tr()$cost_int_geri_add, value = 0, min = 0),
           numericInput("n_cycles", tr()$n_cycles, value = 40, min = 1),
@@ -350,12 +369,25 @@ server <- function(input, output, session) {
     }
   })
   
+  rr_red_num <- reactive(parse_decimal(input$rr_red))
+  rr_conv_num <- reactive(parse_decimal(input$rr_conv))
+  rr_mort_num <- reactive(parse_decimal(input$rr_mort))
+  
   results <- eventReactive(input$run_model, {
+    req(input$lang)
+    
+    validate(
+      need(!is.na(rr_red_num()) && !is.na(rr_conv_num()) && !is.na(rr_mort_num()), tr()$invalid_decimal),
+      need(rr_red_num() >= 0 && rr_red_num() <= 1, tr()$invalid_range),
+      need(rr_mort_num() >= 0 && rr_mort_num() <= 1, tr()$invalid_range),
+      need(rr_conv_num() >= 0, tr()$invalid_decimal)
+    )
+    
     malnu_model(
       n_pop = input$n_pop,
-      rr_red = input$rr_red,
-      rr_conv = input$rr_conv,
-      rr_mort = input$rr_mort,
+      rr_red = rr_red_num(),
+      rr_conv = rr_conv_num(),
+      rr_mort = rr_mort_num(),
       cost_int_gen = input$cost_int_gen,
       cost_int_geri_add = input$cost_int_geri_add,
       n_cycles = input$n_cycles,
