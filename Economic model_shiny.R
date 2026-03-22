@@ -12,12 +12,13 @@ txt <- list(
     language = "Language",
     lang_en = "English",
     lang_sv = "Swedish",
-    n_pop = "Population size",
+    n_pop = "Number of inhabitants aged 60 years and above",
     rr_red = "Effect of intervention on malnutrition (risk reduction)",
     rr_conv = "Effect of intervention on recovery from malnutrition (probability increase)",
     rr_mort = "Effect of intervention on mortality (risk reduction)",
     cost_int_gen = "Annual intervention cost (general)",
     cost_int_geri_add = "Additional annual intervention cost for geriatric patients",
+    sol="Consider costs of medical care and social care (1=yes,0=consider only medical care costs)",
     n_cycles = "Number of cycles (years)",
     run_model = "Run model",
     tab_icer = "ICER",
@@ -43,12 +44,13 @@ txt <- list(
     language = "Språk",
     lang_en = "Engelska",
     lang_sv = "Svenska",
-    n_pop = "Populationsstorlek",
+    n_pop = "Antal invånare 60 år och äldre",
     rr_red = "Effekt av intervention på undernäring (riskreduktion)",
     rr_conv = "Effekt av intervention på återhämtning från undernäring (ökad sannolikhet)",
     rr_mort = "Effekt av intervention på mortalitet (riskreduktion)",
     cost_int_gen = "Årlig interventionskostnad (generell)",
     cost_int_geri_add = "Ytterligare årlig interventionskostnad för geriatriska patienter",
+    sol = "Beräkna kostnader för sjukvård och social omsorg (1 = ja, 0 = endast sjukvård)",
     n_cycles = "Antal cykler (år)",
     run_model = "Kör modell",
     tab_icer = "ICER",
@@ -132,6 +134,7 @@ malnu_model <- function(
     rr_mort,
     cost_int_gen,
     cost_int_geri_add,
+    sol,
     n_cycles,
     lang = "en"
 ) {
@@ -150,18 +153,22 @@ malnu_model <- function(
   n_state2 <- round(n_pop * 0.28, digits = 0)
   n_state3 <- round(n_pop * 0.04, digits = 0)
   
+  state1_cost_geri_par <- ifelse(sol==0,335691,605450)
+  state2_cost_geri_par <- ifelse(sol==0,376591,722406)
+  state3_cost_geri_par <- ifelse(sol==0,383845,772212)
+  
   para <- define_parameters(
     prop_geri_state1 = 0.01,
     prop_geri_state2 = 0.04,
     prop_geri_state3 = 0.13,
     
-    state1_cost_gen = 27546,
-    state2_cost_gen = 29894,
-    state3_cost_gen = 30220,
+    state1_cost_gen=27944,
+    state2_cost_gen=30326,
+    state3_cost_gen=30656,
     
-    state1_cost_geri = 596834,
-    state2_cost_geri = 712126,
-    state3_cost_geri = 761223,
+    state1_cost_geri=state1_cost_geri_par,
+    state2_cost_geri=state2_cost_geri_par,
+    state3_cost_geri=state3_cost_geri_par,
     
     state1_utility = 0.783,
     state2_utility = 0.757,
@@ -370,6 +377,7 @@ server <- function(input, output, session) {
           textInput("rr_mort", tr()$rr_mort, value = fmt_decimal_input(0.00, 2)),
           numericInput("cost_int_gen", tr()$cost_int_gen, value = 10000, min = 0),
           numericInput("cost_int_geri_add", tr()$cost_int_geri_add, value = 0, min = 0),
+          selectInput("sol", tr()$sol, choices = c("0" = 0, "1" = 1), selected = 1),
           numericInput("n_cycles", tr()$n_cycles, value = 40, min = 1),
           actionButton("run_model", tr()$run_model)
         ),
@@ -404,6 +412,7 @@ server <- function(input, output, session) {
       rr_mort = rr_mort_num(),
       cost_int_gen = input$cost_int_gen,
       cost_int_geri_add = input$cost_int_geri_add,
+      sol = input$sol,
       n_cycles = input$n_cycles,
       lang = input$lang
     )
