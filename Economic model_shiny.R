@@ -35,6 +35,7 @@ txt <- list(
     col_dc = "Incremental cost",
     col_de = "Incremental effect",
     col_icer = "Incremental cost-effectiveness ratio (ICER)",
+    currency_note = "Note: All costs are presented in 2026 Swedish Kronor (SEK)",
     invalid_decimal = "Please enter valid numeric values using . or , as decimal separator.",
     invalid_rr_range = "Value must be between 0 and 1.",
     invalid_rr_conv = "Value must be between 0 and 1."
@@ -67,6 +68,7 @@ txt <- list(
     col_dc = "Inkrementell kostnad",
     col_de = "Inkrementell effekt",
     col_icer = "Inkrementell kostnadseffektivitetskvot (ICER)",
+    currency_note = "Notering: Alla kostnader presenteras i 2026 svenska kronor (SEK)",
     invalid_decimal = "Ange giltiga numeriska värden med . eller , som decimaltecken.",
     invalid_rr_range = "Värden måste ligga mellan 0 och 1.",
     invalid_rr_conv = "Värden måste ligga mellan 0 och 1."
@@ -385,7 +387,8 @@ server <- function(input, output, session) {
           tabsetPanel(
             tabPanel(tr()$tab_icer, DTOutput("icer")),
             tabPanel(tr()$tab_summary, DTOutput("summary_tbl"))
-          )
+          ),
+          p(em(tr()$currency_note), style = "margin-top: 20px; color: #666; font-size: 90%;")
         )
       )
     )
