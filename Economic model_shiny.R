@@ -151,8 +151,8 @@ malnu_model <- function(
   tp32 <- tp_vals$tp32
   tp34 <- tp_vals$tp34
   
-  n_state1 <- round(n_pop * 0.68, digits = 0)
-  n_state2 <- round(n_pop * 0.28, digits = 0)
+  n_state1 <- round(n_pop * 0.67, digits = 0)
+  n_state2 <- round(n_pop * 0.29, digits = 0)
   n_state3 <- round(n_pop * 0.04, digits = 0)
   
   state1_cost_geri_par <- ifelse(sol==0,335691,605450)
@@ -164,9 +164,9 @@ malnu_model <- function(
     prop_geri_state2 = 0.04,
     prop_geri_state3 = 0.13,
     
-    state1_cost_gen=27944,
-    state2_cost_gen=30326,
-    state3_cost_gen=30656,
+    state1_cost_gen=27949,
+    state2_cost_gen=30261,
+    state3_cost_gen=30685,
     
     state1_cost_geri=state1_cost_geri_par,
     state2_cost_geri=state2_cost_geri_par,
