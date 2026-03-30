@@ -100,9 +100,9 @@ format_num2 <- function(x) {
 # Transition probabilities
 # =========================
 tp_table <- data.frame(
-  state_start = c(1, 1, 2, 2, 2, 3, 3),
-  state_next  = c(2, 4, 1, 3, 4, 2, 4),
-  tp          = c(0.062, 0.049, 0.079, 0.020, 0.103, 0.066, 0.277)
+  state_start = c(1, 1, 1, 2, 2, 2, 3, 3),
+  state_next  = c(2, 3, 4, 1, 3, 4, 2, 4),
+  tp          = c(0.062, 0.007, 0.049, 0.079, 0.020, 0.103, 0.066, 0.277)
 )
 
 get_tp <- function(s1, s2, data) {
@@ -112,7 +112,7 @@ get_tp <- function(s1, s2, data) {
 }
 
 pairs <- list(
-  c(1, 2), c(1, 4),
+  c(1, 2), c(1,3), c(1, 4),
   c(2, 1), c(2, 3), c(2, 4),
   c(3, 2), c(3, 4)
 )
@@ -144,6 +144,7 @@ malnu_model <- function(
   
   tp_vals <- get_tp_values(tp_table)
   tp12 <- tp_vals$tp12
+  tp13 <- tp_vals$tp13
   tp14 <- tp_vals$tp14
   tp21 <- tp_vals$tp21
   tp23 <- tp_vals$tp23
@@ -188,7 +189,7 @@ malnu_model <- function(
   
   mat_soc <- define_transition(
     state_names = c("state1", "state2", "state3", "state4"),
-    C,    tp12, 0,    tp14,
+    C,    tp12, tp13,    tp14,
     tp21, C,    tp23, tp24,
     0,    tp32, C,    tp34,
     0,    0,    0,    1
@@ -198,7 +199,7 @@ malnu_model <- function(
     state_names = c("state1", "state2", "state3", "state4"),
     C,
     tp12 * (1 - rr_red),
-    0,
+    tp13 * (1 - rr_red),
     tp14 * (1 - rr_mort),
     
     pmin(tp21 * (1 + rr_conv), 1),
@@ -377,8 +378,8 @@ server <- function(input, output, session) {
           textInput("rr_red", tr()$rr_red, value = fmt_decimal_input(0.20, 2)),
           textInput("rr_conv", tr()$rr_conv, value = fmt_decimal_input(0.20, 2)),
           textInput("rr_mort", tr()$rr_mort, value = fmt_decimal_input(0.00, 2)),
-          numericInput("cost_int_gen", tr()$cost_int_gen, value = 10000, min = 0),
-          numericInput("cost_int_geri_add", tr()$cost_int_geri_add, value = 0, min = 0),
+          numericInput("cost_int_gen", tr()$cost_int_gen, value = 200, min = 0),
+          numericInput("cost_int_geri_add", tr()$cost_int_geri_add, value = 3000, min = 0),
           selectInput("sol", tr()$sol, choices = c("0" = 0, "1" = 1), selected = 1),
           numericInput("n_cycles", tr()$n_cycles, value = 40, min = 1),
           actionButton("run_model", tr()$run_model)
