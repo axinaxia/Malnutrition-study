@@ -3,9 +3,8 @@ library(dplyr)
 library(DT)
 library(heemod)
 
-# =========================
-# Translations
-# =========================
+
+# 1. Panel text and column specifications ----
 txt <- list(
   en = list(
     app_title = "Economic model of interventions for malnutrition in Swedish older adults",
@@ -18,20 +17,21 @@ txt <- list(
     rr_mort = "Effect of intervention on mortality (risk reduction)",
     cost_int_gen = "Annual intervention cost (general)",
     cost_int_geri_add = "Additional annual intervention cost for geriatric patients",
-    sol="Consider costs of medical care and social care (1=yes,0=consider only medical care costs)",
+    sol = "Consider costs of medical care and social care (1=yes,0=consider only medical care costs)",
     n_cycles = "Number of cycles (years)",
     run_model = "Run model",
     tab_icer = "ICER",
-    tab_summary = "Summary",
+    tab_summary = "Summary for the whole population",
+    tab_summary_ind = "Summary per individual",
     strategy_soc = "SoC",
     strategy_int = "Intervention",
     strategy_diff = "Intervention vs SoC",
     col_strategy = "Strategy",
+    col_cost_total = "Total costs",
     col_cost_care = "Background costs of care",
     col_cost_rx = "Costs of intervention",
-    col_cost_total = "Total costs",
-    col_qaly = "Quality-Adjusted Life Year",
     col_ly = "Life years",
+    col_qaly = "Quality-Adjusted Life Year",
     col_dc = "Incremental cost",
     col_de = "Incremental effect",
     col_icer = "Incremental cost-effectiveness ratio (ICER)",
@@ -55,16 +55,17 @@ txt <- list(
     n_cycles = "Antal cykler (år)",
     run_model = "Kör modell",
     tab_icer = "ICER",
-    tab_summary = "Sammanfattning",
+    tab_summary = "Sammanfattning för hela populationen",
+    tab_summary_ind = "Sammanfattning per person",
     strategy_soc = "Standardvård",
     strategy_int = "Intervention",
     strategy_diff = "Intervention jämfört med standardvård",
     col_strategy = "Strategi",
+    col_cost_total = "Totala kostnader",
     col_cost_care = "Bakgrundskostnader för vård",
     col_cost_rx = "Interventionskostnader",
-    col_cost_total = "Totala kostnader",
-    col_qaly = "Kvalitetsjusterade levnadsår",
     col_ly = "Levnadsår",
+    col_qaly = "Kvalitetsjusterade levnadsår",
     col_dc = "Inkrementell kostnad",
     col_de = "Inkrementell effekt",
     col_icer = "Inkrementell kostnadseffektivitetskvot (ICER)",
@@ -75,9 +76,7 @@ txt <- list(
   )
 )
 
-# =========================
-# Helpers
-# =========================
+# 2. Functions for formatting numbers ----
 parse_decimal <- function(x) {
   x <- trimws(x)
   x <- gsub(",", ".", x, fixed = TRUE)
@@ -89,16 +88,22 @@ fmt_decimal_input <- function(x, digits = 2) {
 }
 
 format_num0 <- function(x) {
-  ifelse(is.na(x), "-", format(round(x, 0), big.mark = ",", decimal.mark = ".", scientific = FALSE))
+  ifelse(
+    is.na(x),
+    "-",
+    format(round(x, 0), big.mark = ",", decimal.mark = ".", scientific = FALSE)
+  )
 }
 
 format_num2 <- function(x) {
-  ifelse(is.na(x), "-", format(round(x, 2), nsmall = 2, decimal.mark = ".", scientific = FALSE))
+  ifelse(
+    is.na(x),
+    "-",
+    format(round(x, 2), nsmall = 2, decimal.mark = ".", scientific = FALSE)
+  )
 }
 
-# =========================
-# Transition probabilities
-# =========================
+# 3. Transition probability specifications ----
 tp_table <- data.frame(
   state_start = c(1, 1, 1, 2, 2, 2, 3, 3),
   state_next  = c(2, 3, 4, 1, 3, 4, 2, 4),
@@ -112,7 +117,7 @@ get_tp <- function(s1, s2, data) {
 }
 
 pairs <- list(
-  c(1, 2), c(1,3), c(1, 4),
+  c(1, 2), c(1, 3), c(1, 4),
   c(2, 1), c(2, 3), c(2, 4),
   c(3, 2), c(3, 4)
 )
@@ -126,9 +131,7 @@ get_tp_values <- function(tp_table) {
   vals
 }
 
-# =========================
-# heemod model
-# =========================
+# 4. Main model function ----
 malnu_model <- function(
     n_pop,
     rr_red,
@@ -156,22 +159,22 @@ malnu_model <- function(
   n_state2 <- round(n_pop * 0.29, digits = 0)
   n_state3 <- round(n_pop * 0.04, digits = 0)
   
-  state1_cost_geri_par <- ifelse(sol==0,335691,605450)
-  state2_cost_geri_par <- ifelse(sol==0,376591,722406)
-  state3_cost_geri_par <- ifelse(sol==0,383845,772212)
+  state1_cost_geri_par <- ifelse(sol == 0, 335691, 605450)
+  state2_cost_geri_par <- ifelse(sol == 0, 376591, 722406)
+  state3_cost_geri_par <- ifelse(sol == 0, 383845, 772212)
   
   para <- define_parameters(
     prop_geri_state1 = 0.01,
     prop_geri_state2 = 0.04,
     prop_geri_state3 = 0.13,
     
-    state1_cost_gen=27949,
-    state2_cost_gen=30261,
-    state3_cost_gen=30685,
+    state1_cost_gen = 27949,
+    state2_cost_gen = 30261,
+    state3_cost_gen = 30685,
     
-    state1_cost_geri=state1_cost_geri_par,
-    state2_cost_geri=state2_cost_geri_par,
-    state3_cost_geri=state3_cost_geri_par,
+    state1_cost_geri = state1_cost_geri_par,
+    state2_cost_geri = state2_cost_geri_par,
+    state3_cost_geri = state3_cost_geri_par,
     
     state1_utility = 0.783,
     state2_utility = 0.757,
@@ -188,86 +191,71 @@ malnu_model <- function(
   )
   
   mat_soc <- define_transition(
-    state_names = c("state1", "state2", "state3", "state4"),
-    C,    tp12, tp13,    tp14,
+    C,    tp12, tp13, tp14,
     tp21, C,    tp23, tp24,
     0,    tp32, C,    tp34,
     0,    0,    0,    1
   )
   
+
   mat_int <- define_transition(
-    state_names = c("state1", "state2", "state3", "state4"),
-    C,
-    tp12 * (1 - rr_red),
-    tp13 * (1 - rr_red),
-    tp14 * (1 - rr_mort),
-    
-    pmin(tp21 * (1 + rr_conv), 1),
-    C,
-    tp23 * (1 - rr_red),
-    tp24 * (1 - rr_mort),
-    
-    0,
-    pmin(tp32 * (1 + rr_conv), 1),
-    C,
-    tp34 * (1 - rr_mort),
-    
-    0, 0, 0, 1
+    C,                   tp12 * (1 - rr_red), tp13 * (1 - rr_red), tp14 * (1 - rr_mort),
+    tp21 * (1 + rr_conv), C,                  tp23 * (1 - rr_red), tp24 * (1 - rr_mort),
+    0,                   tp32 * (1 + rr_conv), C,                  tp34 * (1 - rr_mort),
+    0,                   0,                   0,                   1
   )
   
+
   state1 <- define_state(
-    cost_care = (
-      (state1_cost_gen) * (1 - prop_geri_state1) +
-        state1_cost_geri * prop_geri_state1
-    ) * disc_fac,
+    cost_care = ((state1_cost_gen) * (1 - prop_geri_state1) +
+                   state1_cost_geri * prop_geri_state1) * disc_fac,
     
-    cost_rx = (
-      cost_rx_par * (1 - prop_geri_state1) +
-        (cost_rx_par + cost_int_geri_add) * prop_geri_state1
-    ) * disc_fac,
+    cost_rx = (cost_rx_par * (1 - prop_geri_state1) +
+                 (cost_rx_par + cost_int_geri_add) * prop_geri_state1) * disc_fac,
     
-    utility = (
-      state1_utility * (1 - prop_geri_state1) +
-        (state1_utility - geri_disutility) * prop_geri_state1
-    ) * disc_fac,
+    cost_total = ((state1_cost_gen) * (1 - prop_geri_state1) +
+                    state1_cost_geri * prop_geri_state1 +
+                    cost_rx_par * (1 - prop_geri_state1) +
+                    (cost_rx_par + cost_int_geri_add) * prop_geri_state1) * disc_fac,
+    
+    utility = (state1_utility * (1 - prop_geri_state1) +
+                 (state1_utility - geri_disutility) * prop_geri_state1) * disc_fac,
     
     life_year = 1
   )
   
   state2 <- define_state(
-    cost_care = (
-      state2_cost_gen * (1 - prop_geri_state2) +
-        state2_cost_geri * prop_geri_state2
-    ) * disc_fac,
+    cost_care = ((state2_cost_gen) * (1 - prop_geri_state2) +
+                   state2_cost_geri * prop_geri_state2) * disc_fac,
     
-    cost_rx = (
-      cost_rx_par * (1 - prop_geri_state2) +
-        (cost_rx_par + cost_int_geri_add) * prop_geri_state2
-    ) * disc_fac,
+    cost_rx = (cost_rx_par * (1 - prop_geri_state2) +
+                 (cost_rx_par + cost_int_geri_add) * prop_geri_state2) * disc_fac,
     
-    utility = (
-      state2_utility * (1 - prop_geri_state2) +
-        (state2_utility - geri_disutility) * prop_geri_state2
-    ) * disc_fac,
+    cost_total = ((state2_cost_gen) * (1 - prop_geri_state2) +
+                    state2_cost_geri * prop_geri_state2 +
+                    cost_rx_par * (1 - prop_geri_state2) +
+                    (cost_rx_par + cost_int_geri_add) * prop_geri_state2) * disc_fac,
+    
+    utility = (state2_utility * (1 - prop_geri_state2) +
+                 (state2_utility - geri_disutility) * prop_geri_state2) * disc_fac,
     
     life_year = 1
   )
   
   state3 <- define_state(
-    cost_care = (
-      state3_cost_gen * (1 - prop_geri_state3) +
-        state3_cost_geri * prop_geri_state3
-    ) * disc_fac,
+    cost_care = ((state3_cost_gen) * (1 - prop_geri_state3) +
+                   state3_cost_geri * prop_geri_state3) * disc_fac,
     
-    cost_rx = (
-      cost_rx_par * (1 - prop_geri_state3) +
-        (cost_rx_par + cost_int_geri_add) * prop_geri_state3
-    ) * disc_fac,
+    cost_rx = (cost_rx_par * (1 - prop_geri_state3) +
+                 (cost_rx_par + cost_int_geri_add) * prop_geri_state3) * disc_fac,
     
-    utility = (
-      state3_utility * (1 - prop_geri_state3) +
-        (state3_utility - geri_disutility) * prop_geri_state3
-    ) * disc_fac,
+    cost_total = ((state3_cost_gen) * (1 - prop_geri_state3) +
+                    state3_cost_geri * prop_geri_state3 +
+                    cost_rx_par * (1 - prop_geri_state3) +
+                    (cost_rx_par + cost_int_geri_add) * prop_geri_state3) * disc_fac,
+    
+    utility = (state3_utility * (1 - prop_geri_state3) +
+                 (state3_utility - geri_disutility) * prop_geri_state3) * disc_fac,
     
     life_year = 1
   )
@@ -275,38 +263,37 @@ malnu_model <- function(
   state4 <- define_state(
     cost_care = 0,
     cost_rx = 0,
+    cost_total = 0,
     utility = 0,
     life_year = 0
   )
   
   strat_soc <- define_strategy(
     transition = mat_soc,
-    state1 = state1,
-    state2 = state2,
-    state3 = state3,
-    state4 = state4
+    state1,
+    state2,
+    state3,
+    state4
   )
   
   strat_int <- define_strategy(
     transition = mat_int,
-    state1 = state1,
-    state2 = state2,
-    state3 = state3,
-    state4 = state4
+    state1,
+    state2,
+    state3,
+    state4
   )
   
   res_mod <- run_model(
     strat_soc = strat_soc,
     strat_int = strat_int,
     parameters = para,
-    init = c(state1 = n_state1, state2 = n_state2, state3 = n_state3, state4 = 0),
+    init = c(n_state1, n_state2, n_state3, 0),
     cycles = n_cycles,
-    cost = cost_care,
-    effect = utility,
-    method = "life-table"
+    cost = cost_total,
+    effect = utility
   )
   
-  # Keep stable internal column names
   summary_raw <- res_mod$run_model %>%
     select(cost_care:life_year) %>%
     rbind(
@@ -317,18 +304,23 @@ malnu_model <- function(
     as.data.frame() %>%
     mutate(
       strategy = c(tr$strategy_soc, tr$strategy_int, tr$strategy_diff),
-      cost_total = cost_care + cost_rx,
-      dc = ifelse(strategy == tr$strategy_diff, cost_total / n_pop, NA_real_),
-      de = ifelse(strategy == tr$strategy_diff, utility / n_pop, NA_real_),
-      ICER = ifelse(strategy == tr$strategy_diff, cost_total / utility, NA_real_)
+      cost_care_ind = cost_care / n_pop,
+      cost_rx_ind = cost_rx / n_pop,
+      life_year_ind = life_year / n_pop,
+      dc = cost_total / n_pop,
+      de = utility / n_pop,
+      ICER = ifelse(strategy==tr$strategy_diff, cost_total / utility, NA)
     ) %>%
-    select(strategy, cost_care, cost_rx, cost_total, utility, life_year, dc, de, ICER)
+    select(strategy, everything())
   
   summary_fmt <- summary_raw %>%
     mutate(
       cost_care = format_num0(cost_care),
       cost_rx = format_num0(cost_rx),
       cost_total = format_num0(cost_total),
+      cost_care_ind = format_num0(cost_care_ind),
+      cost_rx_ind = format_num0(cost_rx_ind),
+      life_year_ind=format_num2(life_year_ind),
       utility = format_num0(utility),
       life_year = format_num0(life_year),
       dc = format_num0(dc),
@@ -339,23 +331,20 @@ malnu_model <- function(
   list(
     model = res_mod,
     summary = summary_fmt %>%
-      select(strategy, cost_care, cost_rx, cost_total, utility, life_year),
+      select(strategy, cost_total, cost_care, cost_rx, life_year, utility),
+    summary_ind = summary_fmt %>%
+      select(strategy, dc, cost_care_ind, cost_rx_ind, life_year_ind, de),
     icer = summary_fmt %>%
-      filter(strategy == tr$strategy_diff) %>%
       select(strategy, dc, de, ICER)
   )
 }
 
-# =========================
-# UI
-# =========================
+# 5. UI and Server ----
 ui <- fluidPage(
   uiOutput("app_ui")
 )
 
-# =========================
-# Server
-# =========================
+
 server <- function(input, output, session) {
   
   tr <- reactive({
@@ -387,7 +376,8 @@ server <- function(input, output, session) {
         mainPanel(
           tabsetPanel(
             tabPanel(tr()$tab_icer, DTOutput("icer")),
-            tabPanel(tr()$tab_summary, DTOutput("summary_tbl"))
+            tabPanel(tr()$tab_summary, DTOutput("summary_tbl")),
+            tabPanel(tr()$tab_summary_ind, DTOutput("summary_tbl_ind"))
           ),
           p(em(tr()$currency_note), style = "margin-top: 20px; color: #666; font-size: 90%;")
         )
@@ -416,7 +406,7 @@ server <- function(input, output, session) {
       rr_mort = rr_mort_num(),
       cost_int_gen = input$cost_int_gen,
       cost_int_geri_add = input$cost_int_geri_add,
-      sol = input$sol,
+      sol = as.numeric(input$sol),
       n_cycles = input$n_cycles,
       lang = input$lang
     )
@@ -428,11 +418,31 @@ server <- function(input, output, session) {
     tbl <- results()$summary
     names(tbl) <- c(
       tr()$col_strategy,
+      tr()$col_cost_total,
       tr()$col_cost_care,
       tr()$col_cost_rx,
+      tr()$col_ly,
+      tr()$col_qaly
+    )
+    
+    datatable(
+      tbl,
+      rownames = FALSE,
+      options = list(pageLength = 10, scrollX = TRUE)
+    )
+  })
+  
+  output$summary_tbl_ind <- renderDT({
+    req(results())
+    
+    tbl <- results()$summary_ind
+    names(tbl) <- c(
+      tr()$col_strategy,
       tr()$col_cost_total,
-      tr()$col_qaly,
-      tr()$col_ly
+      tr()$col_cost_care,
+      tr()$col_cost_rx,
+      tr()$col_ly,
+      tr()$col_qaly
     )
     
     datatable(
