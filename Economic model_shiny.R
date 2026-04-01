@@ -187,7 +187,11 @@ malnu_model <- function(
     cost_rx_par = dispatch_strategy(
       strat_soc = 0,
       strat_int = cost_int_gen
-    )
+    ),
+    
+    cost_rx_add_par=dispatch_strategy(
+      strat_soc=0,
+      strat_int=cost_int_geri_add)
   )
   
   mat_soc <- define_transition(
@@ -211,12 +215,12 @@ malnu_model <- function(
                    state1_cost_geri * prop_geri_state1) * disc_fac,
     
     cost_rx = (cost_rx_par * (1 - prop_geri_state1) +
-                 (cost_rx_par + cost_int_geri_add) * prop_geri_state1) * disc_fac,
+                 (cost_rx_par + cost_rx_add_par) * prop_geri_state1) * disc_fac,
     
     cost_total = ((state1_cost_gen) * (1 - prop_geri_state1) +
                     state1_cost_geri * prop_geri_state1 +
                     cost_rx_par * (1 - prop_geri_state1) +
-                    (cost_rx_par + cost_int_geri_add) * prop_geri_state1) * disc_fac,
+                    (cost_rx_par + cost_rx_add_par) * prop_geri_state1) * disc_fac,
     
     utility = (state1_utility * (1 - prop_geri_state1) +
                  (state1_utility - geri_disutility) * prop_geri_state1) * disc_fac,
@@ -229,12 +233,12 @@ malnu_model <- function(
                    state2_cost_geri * prop_geri_state2) * disc_fac,
     
     cost_rx = (cost_rx_par * (1 - prop_geri_state2) +
-                 (cost_rx_par + cost_int_geri_add) * prop_geri_state2) * disc_fac,
+                 (cost_rx_par + cost_rx_add_par) * prop_geri_state2) * disc_fac,
     
     cost_total = ((state2_cost_gen) * (1 - prop_geri_state2) +
                     state2_cost_geri * prop_geri_state2 +
                     cost_rx_par * (1 - prop_geri_state2) +
-                    (cost_rx_par + cost_int_geri_add) * prop_geri_state2) * disc_fac,
+                    (cost_rx_par + cost_rx_add_par) * prop_geri_state2) * disc_fac,
     
     utility = (state2_utility * (1 - prop_geri_state2) +
                  (state2_utility - geri_disutility) * prop_geri_state2) * disc_fac,
@@ -247,12 +251,12 @@ malnu_model <- function(
                    state3_cost_geri * prop_geri_state3) * disc_fac,
     
     cost_rx = (cost_rx_par * (1 - prop_geri_state3) +
-                 (cost_rx_par + cost_int_geri_add) * prop_geri_state3) * disc_fac,
+                 (cost_rx_par + cost_rx_add_par) * prop_geri_state3) * disc_fac,
     
     cost_total = ((state3_cost_gen) * (1 - prop_geri_state3) +
                     state3_cost_geri * prop_geri_state3 +
                     cost_rx_par * (1 - prop_geri_state3) +
-                    (cost_rx_par + cost_int_geri_add) * prop_geri_state3) * disc_fac,
+                    (cost_rx_par + cost_rx_add_par) * prop_geri_state3) * disc_fac,
     
     utility = (state3_utility * (1 - prop_geri_state3) +
                  (state3_utility - geri_disutility) * prop_geri_state3) * disc_fac,
@@ -367,8 +371,8 @@ server <- function(input, output, session) {
           textInput("rr_red", tr()$rr_red, value = fmt_decimal_input(0.20, 2)),
           textInput("rr_conv", tr()$rr_conv, value = fmt_decimal_input(0.20, 2)),
           textInput("rr_mort", tr()$rr_mort, value = fmt_decimal_input(0.00, 2)),
-          numericInput("cost_int_gen", tr()$cost_int_gen, value = 200, min = 0),
-          numericInput("cost_int_geri_add", tr()$cost_int_geri_add, value = 3000, min = 0),
+          numericInput("cost_int_gen", tr()$cost_int_gen, value = 1100, min = 0),
+          numericInput("cost_int_geri_add", tr()$cost_int_geri_add, value = 2400, min = 0),
           selectInput("sol", tr()$sol, choices = c("0" = 0, "1" = 1), selected = 1),
           numericInput("n_cycles", tr()$n_cycles, value = 40, min = 1),
           actionButton("run_model", tr()$run_model)
