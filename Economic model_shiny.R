@@ -155,30 +155,30 @@ malnu_model <- function(
   tp32 <- tp_vals$tp32
   tp34 <- tp_vals$tp34
   
-  n_state1 <- round(n_pop * 0.67, digits = 0)
-  n_state2 <- round(n_pop * 0.29, digits = 0)
+  n_state1 <- round(n_pop * 0.68, digits = 0)
+  n_state2 <- round(n_pop * 0.28, digits = 0)
   n_state3 <- round(n_pop * 0.04, digits = 0)
   
-  state1_cost_geri_par <- ifelse(sol == 0, 335691, 605450)
-  state2_cost_geri_par <- ifelse(sol == 0, 376591, 722406)
-  state3_cost_geri_par <- ifelse(sol == 0, 383845, 772212)
+  state1_cost_geri_par=ifelse(sol==0,361806,631290)
+  state2_cost_geri_par=ifelse(sol==0,404514,750199)
+  state3_cost_geri_par=ifelse(sol==0,409025,799149)
   
   para <- define_parameters(
     prop_geri_state1 = 0.01,
     prop_geri_state2 = 0.04,
     prop_geri_state3 = 0.13,
     
-    state1_cost_gen = 27949,
-    state2_cost_gen = 30261,
-    state3_cost_gen = 30685,
+    state1_cost_gen=27973,
+    state2_cost_gen=30272,
+    state3_cost_gen=29845,
     
     state1_cost_geri = state1_cost_geri_par,
     state2_cost_geri = state2_cost_geri_par,
     state3_cost_geri = state3_cost_geri_par,
     
-    state1_utility = 0.783,
-    state2_utility = 0.757,
-    state3_utility = 0.720,
+    state1_utility=0.785,
+    state2_utility=0.754,
+    state3_utility=0.720,
     
     geri_disutility = 0.311,
     
