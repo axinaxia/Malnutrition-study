@@ -180,7 +180,7 @@ malnu_model <- function(
     state2_utility=0.754,
     state3_utility=0.720,
     
-    geri_disutility = 0.311,
+    geri_disutility = 0.785-0.472,
     
     disc_fac = exp(-0.03 * (model_time - 1)),
     
